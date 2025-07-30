@@ -21,6 +21,7 @@ mipal-analytics/
 ## Backend
 
 The backend is a Python-based API service built with FastAPI. It provides:
+
 - User authentication and authorization
 - Analytics and chart generation
 - Chat functionality with LLM integration
@@ -31,7 +32,15 @@ For detailed backend documentation, see [backend/README.md](backend/README.md).
 
 ## Frontend
 
-Frontend application will be added here.
+The frontend is a modern React-based application built with Next.js, TypeScript, and Tailwind CSS. It provides:
+
+- User interface for analytics and chart generation
+- Chat interface with LLM integration
+- Database integration management
+- Responsive design for all devices
+- Internationalization support
+
+For detailed frontend documentation and setup instructions, see [frontend/README.md](frontend/README.md).
 
 ## Getting Started
 
@@ -46,8 +55,12 @@ cd backend
 
 ```bash
 cd frontend
-# Frontend setup instructions will be added here
+# Follow the setup instructions in frontend/README.md
+npm install
+npm run dev
 ```
+
+The frontend will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Contributing
 
@@ -60,8 +73,9 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 - Testing guidelines
 
 For module-specific information:
+
 - [Backend Contributing](backend/README.md)
-- Frontend Contributing (to be added)
+- [Frontend Contributing](frontend/README.md)
 
 ## License
 
@@ -69,4 +83,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Copyright
 
-Copyright 2024 Fastlane Developers 
+Copyright 2024 Fastlane Developers
