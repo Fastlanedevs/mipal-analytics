@@ -1,7 +1,6 @@
 // src/lib/auth.config.ts
 import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import AzureADProvider from "next-auth/providers/azure-ad";
+// Google and Azure providers removed
 // Slack provider removed
 import CredentialsProvider from "next-auth/providers/credentials";
 import { parseAuthResponse } from "@/lib/auth-helpers";
@@ -124,114 +123,12 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-          redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/google`,
-        },
-      },
-    }),
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-    }),
+    // Google and Azure providers removed
     // Slack provider removed
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider === "azure-ad") {
-        try {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/azure`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                user,
-                account,
-                profile,
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Azure authentication failed");
-          }
-
-          const data = await response.json();
-          account.access_token = data.access_token;
-          account.refresh_token = data.refresh_token;
-          user.id = data.user_id;
-          user.role = data.role;
-          user.joined_org = data.joined_org;
-          return true;
-        } catch (error) {
-          console.error("Azure auth failed:", error);
-          return false;
-        }
-      }
-      if (account?.provider === "google") {
-        try {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/google`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                user,
-                account,
-                profile,
-              }),
-            }
-          );
-
-          const responseText = await response.text();
-          if (!response.ok) {
-            throw new Error(`Google authentication failed: ${responseText}`);
-          }
-
-          const data = JSON.parse(responseText);
-
-          // Ensure these are set on both user and account
-          user.access_token = data.access_token;
-          user.refresh_token = data.refresh_token;
-          user.id = data.user_id || user.id;
-          user.role = data.role;
-          user.joined_org = data.joined_org;
-
-          if (account) {
-            account.access_token = data.access_token;
-            account.accessToken = data.access_token;
-            account.refresh_token = data.refresh_token;
-            account.role = data.role;
-            account.joined_org = data.joined_org;
-          }
-          return true;
-        } catch (error) {
-          console.error("=== Google SignIn Error ===", {
-            error:
-              error instanceof Error
-                ? {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                  }
-                : "Unknown error",
-            timestamp: new Date().toISOString(),
-          });
-          return false;
-        }
-      }
+      // Google and Azure sign-in callbacks removed
       return true;
     },
 
