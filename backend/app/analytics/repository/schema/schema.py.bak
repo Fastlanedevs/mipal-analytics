@@ -1,0 +1,1533 @@
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+from neomodel import (
+    StructuredNode, StringProperty, ArrayProperty,
+    RelationshipTo, RelationshipFrom, ZeroOrMore, OneOrMore,
+    One, JSONProperty, StructuredRel, BooleanProperty, IntegerProperty, UniqueIdProperty
+)
+import openai
+import logging
+from fastapi import HTTPException
+import uuid
+from app.analytics.entity.analytics import DatabaseType
+import asyncio
+from app.analytics.utils.embeddings import get_embedding as async_get_embedding
+
+# Add these helper functions at the module level, before any class definitions
+def singular_form(name):
+    """Convert a plural table name to its singular form"""
+    if name.endswith('ies'):
+        return name[:-3] + 'y'
+    elif name.endswith('s') and not name.endswith('ss'):
+        return name[:-1]
+    return name
+    
+def plural_form(name):
+    """Convert a singular table name to its plural form"""
+    if name.endswith('y') and not name.endswith('ay') and not name.endswith('ey') and not name.endswith('oy') and not name.endswith('uy'):
+        return name[:-1] + 'ies'
+    elif not name.endswith('s'):
+        return name + 's'
+    return name
+
+class ForeignKeyRel(StructuredRel):
+    """Foreign key relationship properties"""
+    type = StringProperty(required=True)  # ONE_TO_ONE, ONE_TO_MANY, or MANY_TO_MANY
+    from_column = StringProperty(required=True)
+    to_column = StringProperty(required=True)
+    # For many-to-many relationships
+    junction_table = StringProperty()  # Name of the junction table for many-to-many
+    junction_source_column = StringProperty()  # Column in junction table referencing source
+    junction_target_column = StringProperty()  # Column in junction table referencing target
+
+
+class SharedColumnRel(StructuredRel):
+    """Shared column relationship properties"""
+    via = StringProperty(required=True)  # Name of the shared column
+
+
+class Column(StructuredNode):
+    """Node representing a database column"""
+    uid = UniqueIdProperty()  # Add UID
+    name = StringProperty(required=True)  # Not unique globally, only within table
+    data_type = StringProperty(required=True)
+    description = StringProperty(default="")
+    is_primary_key = BooleanProperty(default=False)
+    is_nullable = BooleanProperty(default=True)
+    default = StringProperty()  # Add default value property
+    database_uid = StringProperty(index=True)  # Reference to parent database UID
+    table_uid = StringProperty(index=True)  # Reference to parent table UID
+    unique_name = StringProperty(unique_index=True)  # Globally unique identifier
+    stats = JSONProperty(default={})  # Store column statistics as JSON
+    
+    # Foreign key metadata
+    is_foreign_key = BooleanProperty(default=False)  # Whether this column is a foreign key
+    references_table = StringProperty()  # Name of referenced table
+    references_column = StringProperty()  # Name of referenced column
+    
+    # Relationships
+    table = RelationshipFrom('Table', 'HAS_COLUMN', cardinality=One)
+    references = RelationshipTo('Column', 'REFERENCES', cardinality=ZeroOrMore)
+    referenced_by = RelationshipFrom('Column', 'REFERENCES', cardinality=ZeroOrMore)
+
+    def __init__(self, *args, **kwargs):
+        # Extract table_name if provided
+        table_name = kwargs.pop('table_name', None)
+        database_uid = kwargs.pop('database_uid', None)
+        table_uid = kwargs.pop('table_uid', None)
+        
+        super().__init__(*args, **kwargs)
+        
+        # Create unique_name based on all available information
+        if not self.unique_name and self.name:
+            if database_uid and table_name:
+                # Best case - we have database_uid and table_name
+                self.unique_name = f"{database_uid}:{table_name}.{self.name}"
+                self.database_uid = database_uid
+                if table_uid:
+                    self.table_uid = table_uid
+            elif table_name:
+                # Backwards compatibility - just table_name
+                self.unique_name = f"{table_name}.{self.name}"
+
+
+class Table(StructuredNode):
+    """Node representing a database table"""
+    uid = UniqueIdProperty()  # Add UID
+    name = StringProperty(required=True, index=True)  # Table name within its own database - NOT unique globally
+    database_uid = StringProperty(index=True)  # Store the parent database's UID 
+    full_name = StringProperty(index=True)  # Not unique anymore, just indexed for search
+    unique_key = StringProperty(unique_index=True)  # Compound key: database_uid + name
+    description = StringProperty(default="")
+    embedding = JSONProperty(default=[])  # Store table embedding as JSON array for semantic search
+    schema = StringProperty(required=True)  # The schema this table belongs to (e.g., 'public')
+    storage_url = StringProperty(default="")  # S3 URL for CSV files
+    storage_bucket = StringProperty(default="")  # S3 bucket name
+    storage_path = StringProperty(default="")  # S3 object path
+    row_count = IntegerProperty(default=0)  # Store number of rows
+    last_updated = StringProperty()  # ISO format datetime of last update
+    is_deleted = BooleanProperty(default=False)  # Add is_deleted field
+    
+    # Relationships
+    columns = RelationshipTo(Column, 'HAS_COLUMN', cardinality=ZeroOrMore)
+    foreign_keys = RelationshipTo('Table', 'FOREIGN_KEY', model=ForeignKeyRel, cardinality=ZeroOrMore)
+    relates_to = RelationshipTo('Table', 'RELATED_TO', model=SharedColumnRel, cardinality=ZeroOrMore)
+    database = RelationshipFrom('Database', 'HAS_TABLE', cardinality=One)
+
+    def get_or_create_column(self, name: str, data_type: str, **kwargs):
+        """Get existing column or create new one"""
+        # Create a unique name that includes database_uid for isolation
+        unique_name = f"{self.database_uid}:{self.name}.{name}"
+        
+        # Extract stats from kwargs if present
+        stats = kwargs.pop('stats', {})
+        
+        # Look for column by unique_name - this ensures we find the right column
+        # even if column names are duplicated across different databases
+        try:
+            column = Column.nodes.get(unique_name=unique_name)
+            # Update properties if they changed
+            for key, value in kwargs.items():
+                if getattr(column, key) != value:
+                    setattr(column, key, value)
+            # Update stats if provided
+            if stats:
+                column.stats = stats
+            column.save()
+            # Ensure column is connected to this table
+            if not self.columns.is_connected(column):
+                self.columns.connect(column)
+        except Column.DoesNotExist:
+            # Create new column with proper database and table references
+            kwargs['table_name'] = self.name
+            kwargs['database_uid'] = self.database_uid
+            kwargs['table_uid'] = self.uid
+            
+            if stats:
+                kwargs['stats'] = stats
+                
+            column = Column(
+                name=name, 
+                data_type=data_type, 
+                unique_name=unique_name,
+                **kwargs
+            ).save()
+            
+            self.columns.connect(column)
+        return column
+
+    def add_foreign_key(self, target_table: 'Table', source_column: str, target_column: str, rel_type: str = 'ONE_TO_MANY'):
+        """Add a foreign key relationship to another table"""
+        try:
+            # First ensure both tables are in the same database
+            if self.database_uid != target_table.database_uid:
+                raise ValueError(f"Tables must be in the same database (source: {self.database_uid}, target: {target_table.database_uid})")
+            
+            # Get source column
+            source_col = next((c for c in self.columns.all() if c.name == source_column), None)
+            if not source_col:
+                raise ValueError(f"Source column {source_column} not found in table {self.name}")
+                
+            # Get target column
+            target_col = next((c for c in target_table.columns.all() if c.name == target_column), None)
+            if not target_col:
+                raise ValueError(f"Target column {target_column} not found in table {target_table.name}")
+            
+            # Check if the relationship already exists with the same properties
+            existing_refs = [
+                (ref, rel) for ref in self.foreign_keys.all()
+                for rel in [self.foreign_keys.relationship(ref)]
+                if ref.name == target_table.name and rel.from_column == source_column and rel.to_column == target_column
+            ]
+            
+            for ref, rel in existing_refs:
+                if (rel.to_column != target_column or rel.type != rel_type):
+                    self.foreign_keys.disconnect(ref)
+                    # Also disconnect the column reference
+                    source_col.references.disconnect(target_col)
+            
+            # Only create new relationship if it doesn't exist
+            if not existing_refs:
+                self.foreign_keys.connect(
+                    target_table,
+                    {
+                        'type': rel_type,
+                        'from_column': source_column,
+                        'to_column': target_column
+                    }
+                )
+                # Connect columns with REFERENCES relationship
+                source_col.references.connect(target_col)
+            
+                # Always add a RELATED_TO relationship for better Neo4j visualization
+                try:
+                    # Check if RELATED_TO relationship already exists
+                    existing_relates = [
+                        (ref, rel) for ref in self.relates_to.all()
+                        for rel in [self.relates_to.relationship(ref)]
+                        if ref.name == target_table.name and rel.via == source_column
+                    ]
+                    
+                    if not existing_relates:
+                        self.relates_to.connect(target_table, {'via': source_column})
+                        logging.info(f"Added RELATED_TO relationship: {self.name} -> {target_table.name} via {source_column}")
+                except Exception as e:
+                    logging.warning(f"Error adding RELATED_TO relationship: {str(e)}")
+            
+            # Add shared column relationship if column names match
+            if source_column == target_column:
+                self.add_shared_column_relationship(target_table, source_column)
+                
+        except Exception as e:
+            raise ValueError(f"Failed to add foreign key relationship: {str(e)}")
+
+    def add_shared_column_relationship(self, target_table: 'Table', shared_column: str):
+        """Add a RELATED_TO relationship based on shared column names"""
+        try:
+            # Only disconnect if there's a different shared column
+            existing_rels = [
+                (ref, rel) for ref in self.relates_to.all()
+                for rel in [self.relates_to.relationship(ref)]
+                if ref.name == target_table.name
+            ]
+            
+            for ref, rel in existing_rels:
+                if rel.via != shared_column:
+                    self.relates_to.disconnect(ref)
+            
+            # Only create new relationship if it doesn't exist
+            if not any(rel.via == shared_column for _, rel in existing_rels):
+                self.relates_to.connect(target_table, {'via': shared_column})
+                
+        except Exception as e:
+            raise ValueError(f"Failed to add shared column relationship: {str(e)}")
+
+    def add_many_to_many_relationship(self, target_table: 'Table', junction_table: 'Table',
+                                     source_junction_column: str, target_junction_column: str) -> ForeignKeyRel:
+        """Add a many-to-many relationship to another table via a junction table
+        
+        Args:
+            target_table: The target table in the many-to-many relationship
+            junction_table: The junction table implementing the relationship
+            source_junction_column: Column in junction table referencing this table
+            target_junction_column: Column in junction table referencing target table
+            
+        Returns:
+            The created relationship object
+        """
+        # Create the relationship
+        rel = ForeignKeyRel(
+            type="MANY_TO_MANY",
+            from_column=source_junction_column,
+            to_column=target_junction_column,
+            junction_table=junction_table.name,
+            junction_source_column=source_junction_column,
+            junction_target_column=target_junction_column
+        )
+        
+        # Create the relationship in the graph
+        self.foreign_keys.connect(target_table, rel)
+        
+        return rel
+
+    def preserve_relationships(self):
+        """Store current relationships for later restoration"""
+        # Add explicit logging for debugging
+        try:
+            foreign_keys = list(self.foreign_keys.all())
+            logging.info(f"Preserving {len(foreign_keys)} foreign key relationships for table {self.name}")
+            
+            self._stored_foreign_keys = [
+                (ref.name, rel.from_column, rel.to_column, rel.type)
+                for ref in foreign_keys
+                for rel in [self.foreign_keys.relationship(ref)]
+            ]
+            
+            # Also preserve column-level foreign key information
+            self._stored_column_fks = []
+            for col in self.columns.all():
+                if col.is_foreign_key and col.references_table and col.references_column:
+                    self._stored_column_fks.append((
+                        col.name, 
+                        col.references_table, 
+                        col.references_column
+                    ))
+                    logging.info(f"Preserved column FK info: {col.name} -> {col.references_table}.{col.references_column}")
+            
+            shared_columns = list(self.relates_to.all())
+            logging.info(f"Preserving {len(shared_columns)} shared column relationships for table {self.name}")
+            
+            self._stored_shared_columns = [
+                (ref.name, rel.via)
+                for ref in shared_columns
+                for rel in [self.relates_to.relationship(ref)]
+            ]
+        except Exception as e:
+            logging.error(f"Error preserving relationships for table {self.name}: {str(e)}")
+
+    def restore_relationships(self, database: 'Database'):
+        """Restore previously stored relationships"""
+        # Add explicit logging for debugging
+        try:
+            if hasattr(self, '_stored_foreign_keys'):
+                logging.info(f"Restoring {len(self._stored_foreign_keys)} foreign key relationships for table {self.name}")
+                for target_name, from_col, to_col, rel_type in self._stored_foreign_keys:
+                    try:
+                        # Look for target table within this database's tables
+                        target_table = next((t for t in database.tables.all() if t.name == target_name), None)
+                        if target_table:
+                            # Ensure both tables belong to the same database by checking database_uid
+                            if target_table.database_uid == database.uid:
+                                logging.info(f"Restoring FK: {self.name}.{from_col} -> {target_name}.{to_col} [{rel_type}]")
+                                self.add_foreign_key(target_table, from_col, to_col, rel_type)
+                            else:
+                                logging.warning(f"Cannot restore FK: {self.name}.{from_col} -> {target_name}.{to_col} - different database")
+                        else:
+                            logging.warning(f"Cannot restore FK: target table {target_name} not found")
+                    except Exception as e:
+                        logging.error(f"Error restoring FK {self.name}.{from_col} -> {target_name}.{to_col}: {str(e)}")
+                        continue
+            
+            # Restore column-level foreign key information if table-level restoration fails
+            if hasattr(self, '_stored_column_fks'):
+                logging.info(f"Restoring {len(self._stored_column_fks)} column-level foreign keys for table {self.name}")
+                for col_name, references_table, references_column in self._stored_column_fks:
+                    try:
+                        # Skip if already restored via table relationship
+                        source_col = next((c for c in self.columns.all() if c.name == col_name), None)
+                        if not source_col:
+                            logging.warning(f"Cannot restore column FK: source column {col_name} not found")
+                            continue
+                            
+                        if source_col.is_foreign_key:
+                            logging.info(f"Column FK {col_name} already restored - skipping")
+                            continue
+                            
+                        # Look for target table
+                        target_table = next((t for t in database.tables.all() if t.name == references_table), None)
+                        if not target_table:
+                            logging.warning(f"Cannot restore column FK: target table {references_table} not found")
+                            continue
+                            
+                        # Ensure target column exists
+                        target_col = next((c for c in target_table.columns.all() if c.name == references_column), None)
+                        if not target_col:
+                            logging.warning(f"Cannot restore column FK: target column {references_column} not found")
+                            continue
+                            
+                        # Restore the relationship
+                        logging.info(f"Restoring column FK: {self.name}.{col_name} -> {references_table}.{references_column}")
+                        self.add_foreign_key(target_table, col_name, references_column, 'ONE_TO_MANY')
+                    except Exception as e:
+                        logging.error(f"Error restoring column FK {col_name}: {str(e)}")
+                        continue
+                    
+            if hasattr(self, '_stored_shared_columns'):
+                logging.info(f"Restoring {len(self._stored_shared_columns)} shared column relationships for table {self.name}")
+                for target_name, via in self._stored_shared_columns:
+                    try:
+                        # Look for target table within this database's tables
+                        target_table = next((t for t in database.tables.all() if t.name == target_name), None)
+                        if target_table:
+                            # Ensure both tables belong to the same database by checking database_uid
+                            if target_table.database_uid == database.uid:
+                                logging.info(f"Restoring shared column: {self.name} -> {target_name} via {via}")
+                                self.add_shared_column_relationship(target_table, via)
+                            else:
+                                logging.warning(f"Cannot restore shared column: {self.name} -> {target_name} - different database")
+                        else:
+                            logging.warning(f"Cannot restore shared column: target table {target_name} not found")
+                    except Exception as e:
+                        logging.error(f"Error restoring shared column {via}: {str(e)}")
+                        continue
+        except Exception as e:
+            logging.error(f"Error in restore_relationships for table {self.name}: {str(e)}")
+
+    def update_storage_info(self, bucket: str, path: str, url: str | None = None):
+        """Update storage information for CSV files"""
+        self.storage_bucket = bucket
+        self.storage_path = path
+        self.storage_url = url if url else f"s3://{bucket}/{path}"
+        
+        # Make sure we're using a proper datetime object for isoformat
+        try:
+            self.last_updated = datetime.utcnow().isoformat()
+        except Exception as e:
+            # Fallback to string format if there's any error
+            self.last_updated = str(datetime.utcnow())
+            
+        self.save()
+        
+    def soft_delete(self):
+        """Soft delete the table by marking it as deleted"""
+        if self.is_deleted:
+            return
+        self.is_deleted = True
+        self.save()
+        
+    def restore(self):
+        """Restore a soft-deleted table"""
+        if not self.is_deleted:
+            return
+        self.is_deleted = False
+        self.save()
+
+    def get_column_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get statistics for all columns in this table"""
+        stats = {}
+        for column in self.columns.all():
+            stats[column.name] = column.stats
+        return stats
+
+
+class DatabaseCredential(StructuredNode):
+    """Node representing database credentials"""
+    host = StringProperty(required=True)
+    port = StringProperty(required=True)
+    user = StringProperty(required=True)
+    password = StringProperty(required=True)  # Encrypted
+    created_at = StringProperty(required=True)
+    updated_at = StringProperty(required=True)
+    
+    # Integration metadata
+    integration_id = StringProperty(required=True, unique_index=True)  # Unique integration ID
+    user_id = StringProperty(required=True, index=True)  # Owner of the credentials
+    is_active = BooleanProperty(default=True)
+    
+    # Relationship to database
+    database = RelationshipFrom('Database', 'HAS_CREDENTIALS', cardinality=One)
+
+    @staticmethod
+    def create_credentials(integration_id: str, host: str, port: int, user: str, password: str, user_id: str, settings: dict = None, metadata: dict = None) -> 'DatabaseCredential':
+        """Create a new database credential node"""
+        now = datetime.utcnow().isoformat()
+        creds = DatabaseCredential(
+            host=host,
+            port=str(port),
+            user=user,
+            password=password,  # Note: In production, this should be encrypted
+            created_at=now,
+            updated_at=now,
+            integration_id=integration_id,
+            user_id=user_id,
+            is_active=True
+        ).save()
+        return creds
+
+    def get_password(self) -> str:
+        """Get the database password. In production, this should decrypt the stored password."""
+        return self.password
+
+
+class DatabaseIntegrationStatus(StructuredNode):
+    """Node representing database integration status"""
+    status = StringProperty(required=True)  # pending, in_progress, completed, failed
+    last_sync = StringProperty()  # ISO format datetime
+    error = StringProperty()  # Error message if failed
+    
+    def update_status(self, status: str, error: str = None):
+        """Update sync status"""
+        self.status = status
+        self.last_sync = datetime.utcnow().isoformat()
+        if error:
+            self.error = error
+        self.save()
+
+    @staticmethod
+    def create_sync_status(integration_id: str, sync_id: str) -> 'DatabaseIntegrationStatus':
+        """Create a new sync status node"""
+        return DatabaseIntegrationStatus(
+            status='pending',
+            last_sync=datetime.utcnow().isoformat()
+        ).save()
+
+
+class Database(StructuredNode):
+    """Node representing a database (PostgreSQL or CSV)"""
+    uid = UniqueIdProperty()  # Add UID
+    name = StringProperty(required=True, unique_index=True)
+    type = StringProperty(required=True, choices={
+        DatabaseType.POSTGRES.value: 'PostgreSQL Database',
+        DatabaseType.CSV.value: 'CSV Data Source'
+    })
+    description = StringProperty(default="")
+    
+    # Integration metadata
+    user_id = StringProperty(required=True, index=True)  # Owner of the database
+    integration_id = StringProperty(required=True, unique_index=True)  # Unique integration ID
+    is_active = BooleanProperty(default=True)
+    is_deleted = BooleanProperty(default=False)  # Add is_deleted field
+    created_at = StringProperty(required=True)  # ISO format datetime
+    updated_at = StringProperty(required=True)  # ISO format datetime
+    
+    # Relationships
+    tables = RelationshipTo(Table, 'HAS_TABLE', cardinality=ZeroOrMore)
+    credentials = RelationshipTo('DatabaseCredential', 'HAS_CREDENTIALS', cardinality=One)
+    sync_status = RelationshipTo('DatabaseIntegrationStatus', 'HAS_SYNC_STATUS', cardinality=ZeroOrMore)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure logger is always available
+        if not hasattr(self, 'logger'):
+            self.logger = logging.getLogger(__name__)
+
+    def update_credentials(self, credentials: Dict[str, Any]) -> None:
+        """Update database credentials"""
+        if self.is_deleted:
+            raise ValueError("Cannot modify a deleted database")
+            
+        try:
+            # Get existing credentials through direct iteration
+            existing_creds = None
+            for cred in self.credentials.all():
+                existing_creds = cred
+                break
+
+            if existing_creds:
+                # Update existing credentials
+                existing_creds.host = credentials['host']
+                existing_creds.port = str(credentials['port'])
+                existing_creds.user = credentials['user']
+                existing_creds.password = credentials['password']
+                existing_creds.updated_at = datetime.utcnow().isoformat()
+                existing_creds.save()
+            else:
+                # Create new credentials
+                creds = DatabaseCredential.create_credentials(
+                    integration_id=self.integration_id,
+                    host=credentials['host'],
+                    port=credentials['port'],
+                    user=credentials['user'],
+                    password=credentials['password'],
+                    user_id=self.user_id
+                )
+                # Connect new credentials
+                self.credentials.connect(creds)
+                self.save()
+        
+        except Exception as e:
+            # Create new credentials if any error occurs
+            creds = DatabaseCredential.create_credentials(
+                integration_id=self.integration_id,
+                host=credentials['host'],
+                port=credentials['port'],
+                user=credentials['user'],
+                password=credentials['password'],
+                user_id=self.user_id
+            )
+            # Connect new credentials
+            self.credentials.connect(creds)
+            self.save()
+        
+        self.updated_at = datetime.utcnow().isoformat()
+        self.save()
+
+    def get_or_create_sync_status(self) -> DatabaseIntegrationStatus:
+        """Get existing sync status or create new one"""
+        try:
+            status = self.sync_status.single()
+            if status:
+                return status
+            
+            # If no status exists, create one
+            status = DatabaseIntegrationStatus(
+                status='pending',
+                last_sync=datetime.utcnow().isoformat()
+            ).save()
+            self.sync_status.connect(status)
+            return status
+        
+        except Exception as e:
+            # Create new status if any error occurs
+            status = DatabaseIntegrationStatus(
+                status='pending',
+                last_sync=datetime.utcnow().isoformat()
+            ).save()
+            self.sync_status.connect(status)
+            return status
+
+    def get_or_create_table(self, name: str, schema: str = 'public', **kwargs):
+        """Get existing table or create new one"""
+        try:
+            # First try to find the table in this database's tables using name
+            tables = list(self.tables.all())
+            existing_table = next((t for t in tables if t.name == name), None)
+            
+            if existing_table:
+                # Update properties if they changed
+                for key, value in kwargs.items():
+                    if getattr(existing_table, key) != value:
+                        setattr(existing_table, key, value)
+                existing_table.save()
+                return existing_table
+            
+            # If not found in connected tables, try to find by unique_key
+            unique_key = f"{self.uid}:{name}"
+            try:
+                # This might find a table that exists but isn't connected to this database
+                existing_table = Table.nodes.get(unique_key=unique_key)
+                # Connect it if found
+                if not self.tables.is_connected(existing_table):
+                    self.tables.connect(existing_table)
+                # Update properties
+                for key, value in kwargs.items():
+                    if getattr(existing_table, key) != value:
+                        setattr(existing_table, key, value)
+                existing_table.save()
+                return existing_table
+            except Table.DoesNotExist:
+                # Create new table if it doesn't exist globally
+                full_name = f"{self.name}.{name}"
+                table = Table(
+                    name=name,
+                    full_name=full_name,
+                    database_uid=self.uid,
+                    unique_key=unique_key,
+                    schema=schema,
+                    **kwargs
+                ).save()
+                self.tables.connect(table)
+                return table
+                        
+        except Exception as e:
+            # If any other error occurs, create new table with unique key
+            full_name = f"{self.name}.{name}"
+            unique_key = f"{self.uid}:{name}"
+            table = Table(
+                name=name, 
+                full_name=full_name, 
+                database_uid=self.uid,
+                unique_key=unique_key,
+                schema=schema, 
+                **kwargs
+            ).save()
+            self.tables.connect(table)
+            return table
+    
+    def add_relationship(self, from_table: str, to_table: str, 
+                        from_column: str, to_column: str, 
+                        rel_type: str = 'ONE_TO_MANY'):
+        """Add a foreign key relationship between two tables
+        
+        Args:
+            from_table: Source table name
+            to_table: Target table name
+            from_column: Source column name
+            to_column: Target column name
+            rel_type: Relationship type (ONE_TO_ONE or ONE_TO_MANY)
+            
+        Returns:
+            ForeignKeyRel: The created relationship
+        """
+        # Validate the relationship type
+        if rel_type not in ['ONE_TO_ONE', 'ONE_TO_MANY']:
+            raise ValueError(f"Invalid relationship type: {rel_type}")
+            
+        # Get the tables
+        source_table = self.get_table_by_name(from_table)
+        if not source_table:
+            raise ValueError(f"Source table {from_table} not found")
+            
+        target_table = self.get_table_by_name(to_table)
+        if not target_table:
+            raise ValueError(f"Target table {to_table} not found")
+            
+        # Check if the source table has the from_column
+        source_column = None
+        for col in source_table.columns.all():
+            if col.name == from_column:
+                source_column = col
+                break
+                
+        if not source_column:
+            raise ValueError(f"Source column {from_column} not found in table {from_table}")
+            
+        # Check if the target table has the to_column
+        target_column = None
+        for col in target_table.columns.all():
+            if col.name == to_column:
+                target_column = col
+                break
+                
+        if not target_column:
+            raise ValueError(f"Target column {to_column} not found in table {to_table}")
+        
+        # Check if the relationship already exists
+        existing_rels = [
+            (ref, rel) for ref in source_table.foreign_keys.all()
+            for rel in [source_table.foreign_keys.relationship(ref)]
+            if rel.from_column == from_column and ref.name == target_table.name
+        ]
+        
+        # Disconnect existing relationship if different
+        for ref, rel in existing_rels:
+            if (rel.to_column != to_column or rel.type != rel_type):
+                source_table.foreign_keys.disconnect(ref)
+                # Also disconnect the column reference
+                source_column.references.disconnect(target_column)
+            
+        # Create the relationship
+        rel = source_table.foreign_keys.connect(
+            target_table,
+            {
+                'type': rel_type,
+                'from_column': from_column,
+                'to_column': to_column
+            }
+        )
+        
+        # Also connect the columns directly with REFERENCES relationship
+        source_column.references.connect(target_column)
+        
+        # Update the source column to mark it as a foreign key
+        source_column.is_foreign_key = True
+        source_column.references_table = target_table.name
+        source_column.references_column = to_column
+        source_column.save()
+        
+        # Log this relationship
+        try:
+            logging.info(f"Added relationship: {from_table}.{from_column} -> {to_table}.{to_column} [{rel_type}]")
+        except NameError:
+            # Fallback if logging is not available
+            print(f"Added relationship: {from_table}.{from_column} -> {to_table}.{to_column} [{rel_type}]")
+        
+        return rel
+
+    @property
+    def schema_info(self):
+        """Get formatted schema information for this database"""
+        schema = f"Database: {self.name} (Type: {self.type})\n"
+        
+        for table in self.tables.all():
+            schema += f"\nTable: {table.name} (Schema: {table.schema})\n"
+            
+            # Get columns with details
+            columns = []
+            for col in table.columns.all():
+                col_info = f"{col.name} ({col.data_type})"
+                if col.is_primary_key:
+                    col_info += " PK"
+                if col.is_foreign_key:
+                    col_info += f" FK -> {col.references_table}.{col.references_column}"
+                if not col.is_nullable:
+                    col_info += " NOT NULL"
+                # Add reference information
+                refs = col.references.all()
+                if refs:
+                    ref_info = [f"-> {ref.unique_name}" for ref in refs]
+                    col_info += f" [{', '.join(ref_info)}]"
+                columns.append(col_info)
+            schema += f"Columns: {', '.join(columns)}\n"
+            
+            # Get foreign key relationships
+            relationships = []
+            for target in table.foreign_keys.all():
+                rel = table.foreign_keys.relationship(target)
+                relationships.append(
+                    f"FOREIGN_KEY ({rel.type}): {table.name}.{rel.from_column} -> {target.name}.{rel.to_column}"
+                )
+            
+            # Get shared column relationships
+            for target in table.relates_to.all():
+                rel = table.relates_to.relationship(target)
+                relationships.append(
+                    f"RELATED_TO: {table.name} -> {target.name} (via {rel.via})"
+                )
+            
+            if relationships:
+                schema += f"Relationships: {', '.join(relationships)}\n"
+        
+        return schema
+    
+    def get_llm_friendly_schema(self):
+        """Generate schema description optimized for LLM consumption"""
+        schema = []
+        tables_dict = {}
+        
+        try:
+            # First gather all tables
+            all_tables = list(self.tables.all())
+            logging.info(f"Generating LLM-friendly schema for database {self.name} with {len(all_tables)} tables")
+            
+            # Process each table
+            for table in all_tables:
+                # Process table as before
+                table_info = {
+                    "table_name": table.name,
+                    "columns": [],
+                    "primary_key": [],
+                    "foreign_keys": []
+                }
+                
+                # Add column details
+                for col in table.columns.all():
+                    col_info = {
+                        "name": col.name,
+                        "data_type": col.data_type,
+                        "is_nullable": col.is_nullable,
+                        "default": col.default
+                    }
+                    
+                    table_info["columns"].append(col_info)
+                    
+                    # Track primary keys
+                    if col.is_primary_key:
+                        table_info["primary_key"].append(col.name)
+                        
+                    # Track foreign keys from column attributes
+                    if col.is_foreign_key and col.references_table and col.references_column:
+                        fk_info = {
+                            "column": col.name,
+                            "references_table": col.references_table,
+                            "references_column": col.references_column,
+                            "relationship_type": "ONE_TO_MANY"  # Default assumption
+                        }
+                        table_info["foreign_keys"].append(fk_info)
+                        logging.info(f"Added FK from column: {table.name}.{col.name} -> {col.references_table}.{col.references_column}")
+                
+                # Also add table-level foreign key relationships
+                try:
+                    foreign_keys = list(table.foreign_keys.all())
+                    for target in foreign_keys:
+                        try:
+                            rel = table.foreign_keys.relationship(target)
+                            
+                            # Only add if not already added from column attributes
+                            existing = [fk for fk in table_info["foreign_keys"] if 
+                                       fk["column"] == rel.from_column and 
+                                       fk["references_table"] == target.name and
+                                       fk["references_column"] == rel.to_column]
+                            
+                            if not existing:
+                                fk_info = {
+                                    "column": rel.from_column,
+                                    "references_table": target.name,
+                                    "references_column": rel.to_column,
+                                    "relationship_type": rel.type
+                                }
+                                table_info["foreign_keys"].append(fk_info)
+                                logging.info(f"Added FK from relationship: {table.name}.{rel.from_column} -> {target.name}.{rel.to_column} [{rel.type}]")
+                        except Exception as rel_error:
+                            logging.warning(f"Error processing relationship for table {table.name}: {str(rel_error)}")
+                except Exception as e:
+                    logging.error(f"Error processing relationships for table {table.name}: {str(e)}")
+                
+                schema.append(table_info)
+                tables_dict[table.name] = table_info
+            
+            # Add many-to-many relationships section
+            many_to_many_relationships = []
+            
+            # Identify tables and their many-to-many relationships
+            for table in all_tables:
+                for rel in table.foreign_keys:
+                    try:
+                        # Get relationship properties - handle different types of relationship objects
+                        props = {}
+                        try:
+                            # Try standard Neo4j relationship properties
+                            props = rel.properties()
+                        except (AttributeError, TypeError) as e:
+                            # For direct Table objects or other cases
+                            if hasattr(rel, 'type'):
+                                props['type'] = rel.type
+                            if hasattr(rel, 'from_column'):
+                                props['from_column'] = rel.from_column
+                            if hasattr(rel, 'to_column'):
+                                props['to_column'] = rel.to_column
+                            if hasattr(rel, 'junction_table'):
+                                props['junction_table'] = rel.junction_table
+                            if hasattr(rel, 'junction_source_column'):
+                                props['junction_source_column'] = rel.junction_source_column
+                            if hasattr(rel, 'junction_target_column'):
+                                props['junction_target_column'] = rel.junction_target_column
+                        
+                        # Check if this is a many-to-many relationship
+                        if props.get('type') == 'MANY_TO_MANY' and props.get('junction_table'):
+                            # Get target table
+                            target_table_name = None
+                            try:
+                                # Try with end_node method
+                                target_table = rel.end_node()
+                                target_table_name = target_table.name
+                            except (AttributeError, TypeError):
+                                # Try with direct name attribute
+                                if hasattr(rel, 'name'):
+                                    target_table_name = rel.name
+                                else:
+                                    # Skip if we can't determine the target table
+                                    logging.warning(f"Could not determine target table for M2M relationship from {table.name}")
+                                    continue
+                                    
+                            # Add to many-to-many list
+                            many_to_many_relationships.append({
+                                'source_table': table.name,
+                                'target_table': target_table_name,
+                                'junction_table': props.get('junction_table'),
+                                'source_column': props.get('junction_source_column'),
+                                'target_column': props.get('junction_target_column')
+                            })
+                    except Exception as e:
+                        logging.warning(f"Error processing many-to-many relationship in get_llm_friendly_schema: {str(e)}")
+            
+            # Add a structured schema section with explicit relationship information
+            result = {
+                "database_name": self.name,
+                "database_type": self.type,
+                "tables": schema,
+                "tables_dict": tables_dict,  # Alternative representation as a dictionary
+                "many_to_many_relationships": many_to_many_relationships,
+                "relationships_summary": {
+                    "foreign_keys_count": sum(len(t.get("foreign_keys", [])) for t in schema),
+                    "tables_with_foreign_keys": [t["table_name"] for t in schema if t.get("foreign_keys", [])]
+                }
+            }
+            
+            return result
+            
+        except Exception as e:
+            logging.error(f"Error generating LLM-friendly schema: {str(e)}")
+            # Return a simplified schema in case of error
+            return {
+                "database_name": self.name,
+                "database_type": self.type,
+                "tables": schema,
+                "tables_dict": tables_dict,
+                "error": str(e)
+            }
+
+    @classmethod
+    def get_or_create(cls, name: str, db_type: str):
+        """Get existing database or create new one"""
+        try:
+            return cls.nodes.get(name=name)
+        except cls.DoesNotExist:
+            return cls(name=name, type=db_type).save()
+
+    def sync_schema(self, table_data: dict):
+        """Sync the database schema with the provided table data
+        
+        This method creates or updates tables and columns based on the provided data,
+        while preserving existing relationships.
+        
+        Args:
+            table_data: Dictionary with tables and columns
+            
+        Returns:
+            dict: Summary of sync operations
+        """
+        # Store existing relationships for later restoration
+        stored_relationships = {}
+        for table in self.tables.all():
+            table_name = table.name
+            stored_relationships[table_name] = []
+            
+            # Store foreign key relationships
+            for rel in table.foreign_keys.all():
+                target_table = rel.end_node()
+                props = rel.properties()
+                stored_relationships[table_name].append({
+                    'type': 'foreign_key',
+                    'target_table': target_table.name,
+                    'from_column': props.get('from_column'),
+                    'to_column': props.get('to_column'),
+                    'rel_type': props.get('type', 'ONE_TO_MANY')
+                })
+                
+            # Store shared column relationships
+            for rel in table.relates_to.all():
+                target_table = rel.end_node()
+                props = rel.properties()
+                stored_relationships[table_name].append({
+                    'type': 'shared_column',
+                    'target_table': target_table.name,
+                    'via': props.get('via')
+                })
+                
+        # First pass: create/update tables and columns
+        tables_created = 0
+        tables_updated = 0
+        columns_created = 0
+        columns_updated = 0
+        
+        for table_info in table_data.get('tables', []):
+            table_name = table_info.get('name')
+            table_schema = table_info.get('schema', 'public')
+            
+            # Create or get the table
+            table = self.get_table_by_name(table_name)
+            if not table:
+                table = self.get_or_create_table(table_name, table_schema)
+                tables_created += 1
+            else:
+                # Update existing table
+                table.schema = table_schema
+                table.save()
+                tables_updated += 1
+                
+            # Create or update columns
+            for col_info in table_info.get('columns', []):
+                col_name = col_info.get('name')
+                col_type = col_info.get('data_type')
+                is_pk = col_info.get('is_primary_key', False)
+                is_nullable = col_info.get('is_nullable', True)
+                default = col_info.get('default')
+                
+                # Check if column exists
+                existing_column = None
+                for col in table.columns.all():
+                    if col.name == col_name:
+                        existing_column = col
+                        break
+                        
+                if existing_column:
+                    # Update existing column
+                    existing_column.data_type = col_type
+                    existing_column.is_primary_key = is_pk
+                    existing_column.is_nullable = is_nullable
+                    if default:
+                        existing_column.default = default
+                    existing_column.save()
+                    columns_updated += 1
+                else:
+                    # Create new column
+                    table.get_or_create_column(
+                        col_name, 
+                        col_type,
+                        is_primary_key=is_pk,
+                        is_nullable=is_nullable,
+                        default=default
+                    )
+                    columns_created += 1
+                    
+        # Second pass: restore relationships
+        relationships_restored = 0
+        for table_name, relationships in stored_relationships.items():
+            table = self.get_table_by_name(table_name)
+            if not table:
+                print(f"Warning: Table {table_name} not found for relationship restoration")
+                continue
+                
+            for rel_info in relationships:
+                try:
+                    target_table_name = rel_info.get('target_table')
+                    target_table = self.get_table_by_name(target_table_name)
+                    
+                    if not target_table:
+                        print(f"Warning: Target table {target_table_name} not found for relationship restoration")
+                        continue
+                        
+                    if rel_info.get('type') == 'foreign_key':
+                        # Restore foreign key relationship
+                        self.add_relationship(
+                            from_table=table_name,
+                            to_table=target_table_name,
+                            from_column=rel_info.get('from_column'),
+                            to_column=rel_info.get('to_column'),
+                            rel_type=rel_info.get('rel_type', 'ONE_TO_MANY')
+                        )
+                    elif rel_info.get('type') == 'shared_column':
+                        # Restore shared column relationship
+                        table.add_shared_column_relationship(
+                            target_table,
+                            rel_info.get('via')
+                        )
+                        
+                    relationships_restored += 1
+                except Exception as e:
+                    print(f"Error restoring relationship: {str(e)}")
+                    
+        # Return summary
+        return {
+            'tables_created': tables_created,
+            'tables_updated': tables_updated,
+            'columns_created': columns_created,
+            'columns_updated': columns_updated,
+            'relationships_restored': relationships_restored
+        }
+
+    def get_active_tables(self) -> List['Table']:
+        """Get all non-deleted tables"""
+        if self.is_deleted:
+            return []
+        return [t for t in self.tables.all() if not t.is_deleted]
+    
+    def get_table_by_name(self, name: str, include_deleted: bool = False) -> Optional['Table']:
+        """Get table by name"""
+        if self.is_deleted and not include_deleted:
+            return None
+
+        # First try looking in connected tables (faster)
+        tables = self.tables.all()
+        table = next((t for t in tables 
+                    if t.name == name and (include_deleted or not t.is_deleted)), None)
+        
+        if table:
+            return table
+            
+        # If not found, try by unique_key (in case it exists but isn't connected)
+        try:
+            unique_key = f"{self.uid}:{name}"
+            table = Table.nodes.get(unique_key=unique_key)
+            if include_deleted or not table.is_deleted:
+                # Connect the table if found 
+                if not self.tables.is_connected(table):
+                    self.tables.connect(table)
+                return table
+        except Table.DoesNotExist:
+            pass
+            
+        return None
+
+    def get_table_by_uid(self, uid: str, include_deleted: bool = False) -> Optional['Table']:
+        """Get table by UID"""
+        if self.is_deleted and not include_deleted:
+            return None
+        return next((t for t in self.tables.all() 
+                    if t.uid == uid and (include_deleted or not t.is_deleted)), None)
+
+    def get_deleted_tables(self) -> List['Table']:
+        """Get all soft-deleted tables"""
+        if self.is_deleted:
+            return []
+        return [t for t in self.tables.all() if t.is_deleted]
+
+    def infer_foreign_key_relationships(self):
+        """
+        Infer foreign key relationships between tables based on column naming patterns.
+        Returns the number of relationships inferred.
+        """
+        # Initialize the count
+        inferred_count = 0
+        
+        try:
+            # First we need to get all tables
+            try:
+                tables = list(self.tables.all())
+                logging.info(f"[FK Inference] Starting foreign key inference for database {self.name} with {len(tables)} tables")
+                logging.info(f"[FK Inference] Tables found: {', '.join([table.name for table in tables])}")
+            except Exception as e:
+                logging.error(f"[FK Inference] Error getting tables for FK inference: {str(e)}")
+                return 0
+            
+            if not tables or len(tables) == 0:
+                logging.info(f"[FK Inference] No tables found in database {self.name} for FK inference")
+                return 0
+            
+            # Create a lookup dictionary for tables by name
+            table_dict = {table.name: table for table in tables}
+            # Also add singular and plural forms to the lookup for better matching
+            for table_name, table in list(table_dict.items()):
+                table_dict[singular_form(table_name)] = table
+                table_dict[plural_form(table_name)] = table
+            
+            # Create a lookup for primary key columns
+            primary_keys = {}
+            # Add a dictionary for all columns to help with direct column name matches
+            all_columns = {}
+            # Create a mapping of column names to tables for direct matching
+            column_to_tables = {}
+            
+            for table in tables:
+                logging.info(f"[FK Inference] Processing table: {table.name}")
+                pk_found = False
+                
+                # Track all columns in this table for direct matching
+                table_columns = []
+                
+                for column in table.columns:
+                    # Add column to list of columns in this table
+                    table_columns.append(column.name)
+                    
+                    # Add to column-to-tables mapping
+                    if column.name not in column_to_tables:
+                        column_to_tables[column.name] = []
+                    column_to_tables[column.name].append({
+                        'table': table,
+                        'is_primary': column.is_primary_key
+                    })
+                    
+                    if column.is_primary_key:
+                        primary_keys[table.name] = column.name
+                        # Also add singular and plural forms
+                        primary_keys[singular_form(table.name)] = column.name
+                        primary_keys[plural_form(table.name)] = column.name
+                        pk_found = True
+                        break
+                
+                # Store all columns for this table
+                all_columns[table.name] = table_columns
+                
+                # If no PK found, assume 'id' or '{table_name}_id' as the default
+                if not pk_found:
+                    # Look for a column named 'id'
+                    id_column = next((c for c in table.columns if c.name == 'id'), None)
+                    # Also look for a column named '{table_name}_id' (e.g., customer_id in customers table)
+                    table_id_column = next((c for c in table.columns if c.name == f"{singular_form(table.name)}_id"), None)
+                    
+                    if id_column:
+                        primary_keys[table.name] = 'id'
+                        primary_keys[singular_form(table.name)] = 'id'
+                        primary_keys[plural_form(table.name)] = 'id'
+                        logging.info(f"[FK Inference] Assuming 'id' as primary key for table {table.name}")
+                    elif table_id_column:
+                        pk_name = f"{singular_form(table.name)}_id"
+                        primary_keys[table.name] = pk_name
+                        primary_keys[singular_form(table.name)] = pk_name
+                        primary_keys[plural_form(table.name)] = pk_name
+                        logging.info(f"[FK Inference] Assuming '{pk_name}' as primary key for table {table.name}")
+            
+            # Track all existing relationships to avoid duplicates
+            existing_relationships = set()
+            for table in tables:
+                for rel in table.foreign_keys:
+                    try:
+                        # Handle both Neo4j Relationship objects and direct Table objects
+                        try:
+                            # For Neo4j Relationship objects
+                            target_table = rel.end_node()
+                            target_table_name = target_table.name
+                        except (AttributeError, TypeError):
+                            # For direct Table objects or when end_node() is not available
+                            if hasattr(rel, 'name'):
+                                target_table_name = rel.name
+                                target_table = rel
+                            else:
+                                logging.warning(f"[FK Inference] Could not determine target table for relationship from {table.name}")
+                                continue
+                        
+                        rel_props = rel.properties()
+                        relation_key = (
+                            table.name, 
+                            target_table_name, 
+                            rel_props.get('from_column'), 
+                            rel_props.get('to_column')
+                        )
+                        existing_relationships.add(relation_key)
+                        logging.info(f"[FK Inference] Found existing relationship: {table.name}.{rel_props.get('from_column')} -> {target_table_name}.{rel_props.get('to_column')}")
+                    except Exception as rel_error:
+                        logging.warning(f"[FK Inference] Error processing relationship for {table.name}: {str(rel_error)}")
+                        continue
+            
+            # Map known_fk_references like 'customer_id' -> {'table': 'customers', 'column': 'customer_id'}
+            known_fk_references = {}
+            
+            # Generate standard FK patterns based on table names
+            for table_name, pk_name in primary_keys.items():
+                # Standard patterns: 'customer_id', 'customerId', etc.
+                known_fk_references[f"{singular_form(table_name)}_id"] = {
+                    'table': table_name, 
+                    'column': pk_name
+                }
+                known_fk_references[f"{table_name}_id"] = {
+                    'table': table_name, 
+                    'column': pk_name
+                }
+                # Handle both singular and plural forms
+                known_fk_references[f"{plural_form(singular_form(table_name))}_id"] = {
+                    'table': table_name, 
+                    'column': pk_name
+                }
+                
+                # For tables with underscore names like 'order_items', also check 'order_item_id'
+                if '_' in table_name:
+                    singular_underscore = '_'.join([singular_form(part) for part in table_name.split('_')])
+                    known_fk_references[f"{singular_underscore}_id"] = {
+                        'table': table_name, 
+                        'column': pk_name
+                    }
+            
+            # First pass - check for direct column name matches (exact same column name)
+            # This is especially useful for columns like 'customer_id' that exist in both the source and target tables
+            for source_table in tables:
+                logging.info(f"[FK Inference] Checking direct column matches for table: {source_table.name}")
+                
+                # Get all potential foreign key columns in this table (columns with _id suffix or id in name)
+                fk_columns = [col for col in source_table.columns 
+                             if (col.name.endswith('_id') or 'id' in col.name.lower()) 
+                             and not col.is_primary_key]
+                
+                for fk_col in fk_columns:
+                    # Check if this column name exists in any other table
+                    if fk_col.name in column_to_tables:
+                        for target_info in column_to_tables[fk_col.name]:
+                            target_table = target_info['table']
+                            
+                            # Skip self-references (unless it's a parent/child relationship)
+                            if target_table.name == source_table.name:
+                                # Special case: parent_id or similar referencing same table is allowed
+                                if not (fk_col.name.startswith('parent_') or 
+                                       fk_col.name.endswith('_parent_id') or
+                                       'parent' in fk_col.name):
+                                    continue
+                            
+                            # Found a match! This is likely a foreign key reference
+                            logging.info(f"[FK Inference] Found direct column name match: {source_table.name}.{fk_col.name} -> {target_table.name}.{fk_col.name}")
+                            
+                            # Check if relationship already exists
+                            relation_key = (source_table.name, target_table.name, fk_col.name, fk_col.name)
+                            if relation_key in existing_relationships:
+                                logging.info(f"[FK Inference] Relationship already exists, skipping")
+                                continue
+                            
+                            # Add the relationship
+                            try:
+                                logging.info(f"[FK Inference] Adding direct column match FK: {source_table.name}.{fk_col.name} -> {target_table.name}.{fk_col.name}")
+                                source_table.add_foreign_key(
+                                    target_table, 
+                                    fk_col.name, 
+                                    fk_col.name,
+                                    'ONE_TO_MANY'  # Default relationship type
+                                )
+                                inferred_count += 1
+                                existing_relationships.add(relation_key)
+                                
+                                # Also add a RELATED_TO relationship for better graph visualization
+                                try:
+                                    source_table.relates_to.connect(target_table, {'via': fk_col.name})
+                                    logging.info(f"[FK Inference] Added RELATED_TO relationship: {source_table.name} -> {target_table.name} via {fk_col.name}")
+                                except Exception as rel_e:
+                                    logging.warning(f"[FK Inference] Error adding RELATED_TO relationship: {str(rel_e)}")
+                                    
+                            except Exception as e:
+                                logging.error(f"[FK Inference] Error adding relationship: {str(e)}")
+
+            # Second pass: check for naming patterns (customer_id -> customers.id)
+            for source_table in tables:
+                logging.info(f"[FK Inference] Processing table for FK pattern inference: {source_table.name}")
+                for column in source_table.columns:
+                    # Skip primary keys and already processed columns
+                    if column.is_primary_key or column.is_foreign_key:
+                        continue
+                    
+                    source_column_name = column.name
+                    logging.info(f"[FK Inference] Checking column: {source_column_name}")
+                    
+                    # Check if column name matches a known foreign key pattern
+                    if source_column_name in known_fk_references:
+                        target_info = known_fk_references[source_column_name]
+                        target_table_name = target_info['table']
+                        target_column_name = target_info['column']
+                        
+                        logging.info(f"[FK Inference] Found potential FK: {source_table.name}.{source_column_name} -> {target_table_name}.{target_column_name}")
+                        
+                        # Make sure the target table exists
+                        if target_table_name not in table_dict:
+                            logging.warning(f"[FK Inference] Target table {target_table_name} not found, skipping")
+                            continue
+                            
+                        # Check if relationship already exists
+                        relation_key = (source_table.name, target_table_name, source_column_name, target_column_name)
+                        if relation_key in existing_relationships:
+                            logging.info(f"[FK Inference] Relationship already exists, skipping")
+                            continue
+                            
+                        # Add the relationship
+                        try:
+                            target_table = table_dict[target_table_name]
+                            logging.info(f"[FK Inference] Adding FK: {source_table.name}.{source_column_name} -> {target_table_name}.{target_column_name}")
+                            source_table.add_foreign_key(
+                                target_table, 
+                                source_column_name, 
+                                target_column_name,
+                                'ONE_TO_MANY'  # Default relationship type
+                            )
+                            inferred_count += 1
+                            existing_relationships.add(relation_key)
+                            
+                            # Also add a RELATED_TO relationship for better graph visualization
+                            try:
+                                source_table.relates_to.connect(target_table, {'via': source_column_name})
+                                logging.info(f"[FK Inference] Added RELATED_TO relationship: {source_table.name} -> {target_table_name} via {source_column_name}")
+                            except Exception as rel_e:
+                                logging.warning(f"[FK Inference] Error adding RELATED_TO relationship: {str(rel_e)}")
+                                
+                        except Exception as e:
+                            logging.error(f"[FK Inference] Error adding relationship: {str(e)}")
+            
+            # Third pass: check for any column ending with _id that wasn't caught yet
+            for source_table in tables:
+                for column in source_table.columns:
+                    # Skip primary keys and already processed columns
+                    if column.is_primary_key or column.is_foreign_key:
+                        continue
+                    
+                    source_column_name = column.name
+                    
+                    # Only process columns ending with _id that weren't handled in first pass
+                    if source_column_name.endswith('_id'):
+                        # Extract the potential table name
+                        potential_table_name = source_column_name.replace('_id', '')
+                        logging.info(f"[FK Inference] Analyzing potential FK column: {source_column_name} -> potential table: {potential_table_name}")
+                        
+                        # Try different forms to find the target table
+                        target_table_name = None
+                        for name_variant in [
+                            potential_table_name,
+                            singular_form(potential_table_name),
+                            plural_form(potential_table_name)
+                        ]:
+                            if name_variant in table_dict:
+                                target_table_name = name_variant
+                                break
+                        
+                        if not target_table_name:
+                            logging.info(f"[FK Inference] No matching table found for {potential_table_name}, skipping")
+                            continue
+                        
+                        # Get the primary key of the target table
+                        if target_table_name not in primary_keys:
+                            logging.info(f"[FK Inference] No primary key found for {target_table_name}, skipping")
+                            continue
+                            
+                        target_column_name = primary_keys[target_table_name]
+                        
+                        # Check if relationship already exists
+                        relation_key = (source_table.name, target_table_name, source_column_name, target_column_name)
+                        if relation_key in existing_relationships:
+                            logging.info(f"[FK Inference] Relationship already exists, skipping")
+                            continue
+                        
+                        # Add the relationship
+                        try:
+                            target_table = table_dict[target_table_name]
+                            logging.info(f"[FK Inference] Adding FK from name pattern: {source_table.name}.{source_column_name} -> {target_table_name}.{target_column_name}")
+                            source_table.add_foreign_key(
+                                target_table, 
+                                source_column_name, 
+                                target_column_name,
+                                'ONE_TO_MANY'  # Default relationship type
+                            )
+                            inferred_count += 1
+                            existing_relationships.add(relation_key)
+                            
+                            # Also add a RELATED_TO relationship for better graph visualization
+                            try:
+                                source_table.relates_to.connect(target_table, {'via': source_column_name})
+                                logging.info(f"[FK Inference] Added RELATED_TO relationship: {source_table.name} -> {target_table_name} via {source_column_name}")
+                            except Exception as rel_e:
+                                logging.warning(f"[FK Inference] Error adding RELATED_TO relationship: {str(rel_e)}")
+                                
+                        except Exception as e:
+                            logging.error(f"[FK Inference] Error inferring relationship: {str(e)}")
+            
+            # Return the count of inferred relationships
+            logging.info(f"[FK Inference] Completed with {inferred_count} relationships inferred")
+            return inferred_count
+            
+        except Exception as e:
+            logging.error(f"[FK Inference] Error in foreign key inference: {str(e)}")
+            return inferred_count
+
+
+async def get_or_create_database(
+    name: str,
+    description: str,
+    db_type: str,
+    user_id: str
+) -> Database:
+    """Get or create a database node"""
+    try:
+        database = Database.nodes.get(name=name)
+        
+        # Convert db_type to string value if it's an enum
+        if isinstance(db_type, DatabaseType):
+            db_type = db_type.value
+        
+        # Check if database type matches
+        if database.type != db_type:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Database '{name}' exists but is not a {db_type} database"
+            )
+        
+        # Update description if provided
+        if description:
+            database.description = description
+            database.save()
+        
+        return database
+        
+    except Database.DoesNotExist:
+        now = datetime.utcnow().isoformat()
+        
+        # Convert db_type to string value if it's an enum
+        if isinstance(db_type, DatabaseType):
+            db_type = db_type.value
+            
+        database = Database(
+            name=name,
+            type=db_type,  # Store as string value
+            description=description or "",
+            integration_id=str(uuid.uuid4()),
+            user_id=user_id,
+            created_at=now,
+            updated_at=now,
+            is_active=True,
+            is_deleted=False
+        ).save()
+        
+        return database
+
+
+def get_embedding(text):
+    """
+    Retrieve embedding for a given text using OpenAI.
+    
+    Note: This is a synchronous wrapper around the async get_embedding function
+    from the utils module. For new code, use the async version directly.
+    """
+    
+    
+    # Create a new event loop for this thread if one doesn't exist
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    
+    # Run the async function in the event loop
+    return loop.run_until_complete(async_get_embedding(text, model=model))
+

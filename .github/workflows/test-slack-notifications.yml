@@ -1,0 +1,44 @@
+name: Test Slack Notifications
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run (success/failure)'
+        required: true
+        type: choice
+        options:
+          - success
+          - failure
+
+jobs:
+  test-notification:
+    name: Test Notification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Simulate Success
+        if: github.event.inputs.test_type == 'success'
+        run: echo "Simulating successful deployment"
+
+      - name: Simulate Failure
+        if: github.event.inputs.test_type == 'failure'
+        run: exit 1
+
+      - name: Notify Slack on Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          channel-id: 'C092Y8J5745'
+          slack-message: "✅ TEST: Deployment to Production Successful!\n• Service: test-service\n• Image Tag: test-tag\n• Deployed by: ${{ github.actor }}"
+        env:
+          SLACK_BOT_TOKEN: 'xoxb-3686209360626-9095307784998-sVDv8BlTH2b0FjPqS0TSaewn'
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          channel-id: 'C092Y8J5745'
+          slack-message: "❌ TEST: Deployment to Production Failed!\n• Service: test-service\n• Image Tag: test-tag\n• Deployed by: ${{ github.actor }}\n• Check the GitHub Actions logs for more details."
+        env:
+          SLACK_BOT_TOKEN: 'xoxb-3686209360626-9095307784998-sVDv8BlTH2b0FjPqS0TSaewn'

@@ -1,0 +1,80 @@
+openai:
+  openai_api_key: ${oc.env:OPENAI_API_KEY}
+  deepseek_api_key: ${oc.env:DEEPSEEK_API_KEY}
+  groq_api_key: ${oc.env:GROQ_API_KEY}
+  gemini_api_key: ${oc.env:GEMINI_API_KEY}
+  chart_generation_model: ${oc.env:CHART_GENERATION_MODEL, "gpt-4o-mini"}
+  chart_adjustment_model: ${oc.env:CHART_ADJUSTMENT_MODEL, "gpt-4o-mini"}
+  analytics_pal_model: ${oc.env:ANALYTICS_PAL_MODEL, "gpt-4o-mini"}
+
+neo4j:
+  uri: ${oc.env:NEO4J_URI}
+  user: ${oc.env:NEO4J_USER, "neo4j"}
+  password: ${oc.env:NEO4J_PASSWORD}
+  max_pool_size: 50
+  max_retries: 3
+  retry_delay: 1
+
+postgres:
+  host: ${oc.env:POSTGRES_HOST}
+  port: ${oc.env:POSTGRES_PORT}
+  user: ${oc.env:POSTGRES_USER}
+  password: ${oc.env:POSTGRES_PASSWORD}
+  database: ${oc.env:POSTGRES_DATABASE}
+
+
+google_oauth:
+  client_id: ${oc.env:GOOGLE_OAUTH_CLIENT_ID}
+  client_secret: ${oc.env:GOOGLE_OAUTH_CLIENT_SECRET}
+
+jwt_auth:
+  super_secret_key: ${oc.env:JWT_SUPER_SECRET}
+  refresh_secret_key: ${oc.env:JWT_REFRESH_SECRET}
+
+smtp:
+  smtp_server: ${oc.env:SMTP_SERVER}
+  smtp_port: ${oc.env:SMTP_PORT}
+  username: ${oc.env:SMTP_USER_NAME}
+  password: ${oc.env:SMTP_PASSWORD}
+
+aws:
+  aws_access_key_id: ${oc.env:AWS_ACCESS_KEY_ID}
+  aws_secret_access_key: ${oc.env:AWS_SECRET_ACCESS_KEY}
+  aws_region: ${oc.env:AWS_REGION}
+  kms_key_id: ${oc.env:AWS_KMS_KEY_ID}
+  s3_bucket_name: ${oc.env:AWS_S3_BUCKET_NAME}
+  anthropic_bedrock_id: ${oc.env:AWS_ANTHROPIC_BEDROCK_ID}
+  lambda_function_name: ${oc.env:LAMBDA_FUNCTION_NAME}
+
+queue:
+  sync_documents: ${oc.env:SYNC_DOCUMENTS_QUEUE}
+  deep_research_tasks: ${oc.env:DEEP_RESEARCH_TASKS_QUEUE}
+
+redis:
+  host: ${oc.env:REDIS_HOST}
+  port: ${oc.env:REDIS_PORT}
+  password: ${oc.env:REDIS_PASSWORD}
+
+slack:
+  client_id: ${oc.env:SLACK_CLIENT_ID}
+  client_secret: ${oc.env:SLACK_CLIENT_SECRET}
+  signing_secret: ${oc.env:SLACK_SIGNING_SECRET}
+
+stripe:
+  stripe_secret_key: ${oc.env:STRIPE_SECRET_KEY}
+  stripe_webhook_secret: ${oc.env:STRIPE_WEBHOOK_SECRET}
+
+service_url:
+  code_execution_url: ${oc.env:CODE_EXECUTION_SERVICE_URL}
+
+
+
+
+
+deep_research:
+  clarity_model_name: ${oc.env:DEEP_RESEARCH_CLARITY_MODEL, "GPT_4_1_MINI"}
+  task_planner_model: ${oc.env:DEEP_RESEARCH_TASK_PLANNER_MODEL, "gpt-4.1-mini"}
+  browser_model: ${oc.env:DEEP_RESEARCH_BROWSER_MODEL, "gpt-4.1-mini"}
+  analysis_model: ${oc.env:DEEP_RESEARCH_ANALYSIS_MODEL, "gpt-4.1-mini"}
+  log_cleaner_model: ${oc.env:DEEP_RESEARCH_LOG_CLEANER_MODEL, "openai:gpt-4.1-mini"}
+

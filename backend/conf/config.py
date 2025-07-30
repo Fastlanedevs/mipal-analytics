@@ -1,0 +1,127 @@
+# pkg/config/config.py
+
+from dataclasses import dataclass, field
+from typing import List, Optional
+from omegaconf import MISSING
+
+
+@dataclass
+class Neo4jConfig:
+    uri: str
+    user: str
+    password: str
+    max_pool_size: int = 50
+    max_retries: int = 3
+    retry_delay: int = 1
+
+
+@dataclass
+class GoogleOAuthConfig:
+    client_id: str
+    client_secret: str
+
+
+@dataclass
+class JWTAuthConfig:
+    super_secret_key: str
+    refresh_secret_key: str
+
+
+@dataclass
+class SMTPConfig:
+    smtp_server: str
+    smtp_port: str
+    username: str
+    password: str
+
+
+@dataclass
+class OpenAIConfig:
+    openai_api_key: str
+    deepseek_api_key: str
+    groq_api_key: str
+    gemini_api_key: str
+    chart_generation_model: str = "gpt-4o-mini"
+    chart_adjustment_model: str = "gpt-4o-mini"
+    analytics_pal_model: str = "gpt-4o-mini"
+
+
+@dataclass
+class AWSConfig:
+    kms_key_id: str
+    s3_bucket_name: str
+    anthropic_bedrock_id: str
+    lambda_function_name: str
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: str = "eu-north-1"
+
+
+@dataclass
+class QueueConfig:
+    sync_documents: str
+    deep_research_tasks: Optional[str] = None
+
+
+@dataclass
+class RedisConfig:
+    host: str
+    port: str
+    password: str
+
+
+@dataclass
+class Slack:
+    client_id: str
+    client_secret: str
+    signing_secret: str
+
+
+@dataclass
+class PostgresConfig:
+    host: str
+    port: int
+    database: str
+    user: str
+    password: str
+
+
+@dataclass
+class StripeConfig:
+    stripe_secret_key: str
+    stripe_webhook_secret: str
+
+# <<< Define DeepResearchConfig >>>
+@dataclass
+class DeepResearchConfig:
+    # Define fields matching your config.yaml, provide defaults or use MISSING
+    clarity_model_name: str = "GPT_4_1_MINI"
+    task_planner_model: str = "gpt-4o-mini" # Default or MISSING
+    browser_model: str = "gpt-4o-mini"      # Default or MISSING
+    analysis_model: str = "gpt-4o-mini"     # Default or MISSING
+    log_cleaner_model: str = "gpt-4o-mini"   # Default or MISSING
+    # Add other fields if needed
+
+
+@dataclass
+class ServiceURL:
+    code_execution_url: str
+
+
+@dataclass
+class AppConfig:
+    neo4j: Neo4jConfig
+    google_oauth: GoogleOAuthConfig
+    jwt_auth: JWTAuthConfig
+    smtp: SMTPConfig
+    openai: OpenAIConfig
+    queue: QueueConfig
+    redis: RedisConfig
+    slack: Slack
+    stripe: StripeConfig
+    aws: AWSConfig
+    postgres: PostgresConfig
+    stripe: StripeConfig
+    service_url: ServiceURL
+    deep_research: DeepResearchConfig = MISSING # <<< Add deep_research field
+

@@ -1,0 +1,151 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["."]  # This points to root directory instead of src
+
+[tool.hatch.build]
+artifacts = ["./**/*"]  # This includes all files from root
+
+[project]
+name = "mipal-backend"
+version = "0.1.0"
+description = "mipal backend service"
+readme = "README.md"
+authors = [
+]
+requires-python = ">=3.11"
+dependencies = [
+    "tenacity>=8.1.0,<10.0.0",
+    "fastapi>=0.75.0",
+    "uvicorn~=0.31.1",
+    "pydantic<3.0.0,>=2.0.0",
+    "python-dotenv>=0.21.0",
+    "openai",
+    "websockets",
+    "wsproto",
+    "pyautogen",
+    "requests~=2.32.3",
+    "langchain_community>=0.3.0,<0.4.0",
+    "playwright",
+    "beautifulsoup4~=4.12.3",
+    "firecrawl-py",
+    "pydub",
+    "numpy~=1.26.4",
+    "soundfile",
+    "transformers>=4.45.2,<5.0.0",
+    "torch~=2.4.1",
+    "psycopg2-binary",
+    "cachetools~=5.5.0",
+    "motor~=3.6.0",
+    "aiohttp~=3.10.10",
+    "aiomysql",
+    "flaml[automl]",
+    "selenium>=4.0.0",
+    "webdriver_manager>=3.8.0",
+    "jose",
+    "hydra-core",
+    "omegaconf",
+    "loguru",
+    "markdown",
+    "sentence-transformers",
+    "pandas",
+    "neomodel==5.3.3",
+    "dependency-injector",
+    "PyJWT",
+    "bcrypt",
+    "google-auth",
+    "boto3>=1.15.0",
+    "python-multipart",
+    "python-magic",
+    "llama-index==0.11.2",
+    "llama-index-agent-openai==0.3.4",
+    "llama-index-embeddings-openai==0.2.5",
+    "llama-index-vector-stores-neo4jvector==0.2.3",
+    "llama-index-readers-smart-pdf-loader==0.2.0",
+    "llama-index-readers-llama-parse==0.3.0",
+    "llama-index-readers-google==0.4.2",
+    "python-pptx==1.0.2",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "python-docx >= 0.8.11",
+    "docx2txt >= 0.8",
+    "openpyxl >= 3.1.2",
+    "pandas >= 2.0.0",
+    "matplotlib",
+    "seaborn",
+    "gurobipy",
+    "eventlet",
+    "anthropic",
+    "redis",
+    "slack_sdk",
+    "mem0ai>=0.1.46",
+    "rank-bm25>=0.2.2",
+    "langchain-google-genai>=2.0.8",
+    "markdownify>=0.14.1",
+    "msgpack>=1.1.0",
+    "dataparser>=0.0.2",
+    "pdfplumber>=0.11.5",
+    "autogen-agentchat>=0.4.5",
+    "markdown2>=2.5.3",
+    "autogen-ext[semantic-kernel-aws]>=0.4.5",
+    "aiofiles>=24.1.0",
+    "stripe>=7.0.0",
+    "googlesearch-python>=1.3.0",
+    "tavily-python>=0.5.1",
+    "lightrag-hku>=1.1.6",
+    "pipmaster>=0.4.0",
+    "asyncpg>=0.30.0",
+    "pycryptodome>=3.21.0",
+    "pypdf2>=3.0.1",
+    "google-genai>=1.7.0",
+    "pgvector>=0.4.0",
+    "alembic>=1.15.2",
+    "sqlalchemy>=2.0.38",
+    "browser-use>=0.1.41",
+    "langchain-openai>=0.3.11",
+    "langchain-anthropic>=0.3.3",
+    "langchain-ollama>=0.3.0",
+    "steel-sdk>=0.1.0",
+    "pyobjtojson",
+    "pydantic-ai==0.2.14",
+    "xlrd>=2.0.1",
+    "aioboto3",
+"statsmodels"
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx",
+    "ruff",
+    "protobuf",
+    "protobuf-to-pydantic"
+]
+
+[project.scripts]
+example-pkg = "cmd_server.server:main"
+
+
+[tool.ruff]
+line-length = 88
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "RUF", # Ruff-specific rules
+]
+fix = true
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "tab"
+docstring-code-format = true

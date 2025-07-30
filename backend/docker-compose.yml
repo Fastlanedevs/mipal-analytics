@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # Redis for queue management and caching
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Database for storing execution records
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: mipal
+      POSTGRES_PASSWORD: mipal123
+      POSTGRES_DB: mipal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mipal"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Pre-build sandbox container for the Docker sandbox provider
+  # This container is only used with the Docker sandbox provider
+  python-sandbox:
+    build:
+      context: app/code_execution/sandbox
+      dockerfile: Dockerfile
+    image: mipal/python-sandbox:latest
+    deploy:
+      replicas: 0  # Don't start containers initially, they're managed by the service
+
+  # The code execution service
+  code-execution-service:
+    build:
+      context: .
+      dockerfile: docker/code_execution/Dockerfile
+    image: mipal/code-execution-service:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      # Database config
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: mipal
+      POSTGRES_PASSWORD: mipal123
+      POSTGRES_DB: mipal
+      
+      # Redis config
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      
+      # Sandbox provider - "docker" for local development, "ecs" for production
+      SANDBOX_PROVIDER: docker
+      
+      # Docker sandbox settings (only used if SANDBOX_PROVIDER=docker)
+      DOCKER_SANDBOX_IMAGE: mipal/python-sandbox:latest
+      
+      # Sandbox pool configuration
+      SANDBOX_MIN_SIZE: 2
+      SANDBOX_MAX_SIZE: 5
+      
+      # AWS settings (only used if SANDBOX_PROVIDER=ecs)
+      AWS_REGION: us-west-2
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      ECS_CLUSTER: mipal-code-execution
+      ECS_TASK_DEFINITION: mipal-python-sandbox
+      ECS_SUBNET_IDS: ${ECS_SUBNET_IDS:-}
+      ECS_SECURITY_GROUP_IDS: ${ECS_SECURITY_GROUP_IDS:-}
+    volumes:
+      # Mount Docker socket for local Docker sandbox provider
+      # Only needed when SANDBOX_PROVIDER=docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:
