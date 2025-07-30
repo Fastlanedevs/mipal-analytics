@@ -43,20 +43,7 @@ export default function SettingsLayout({
               <User className="w-4 h-4 mr-2" />
               {t("navigation.profile")}
             </Button>
-            {userProfile?.organisation?.id && (
-              <Button
-                variant="ghost"
-                className={`justify-start flex-shrink-0 md:w-full ${
-                  pathname === "/settings/plans"
-                    ? "bg-primary-foreground dark:bg-foreground dark:text-background"
-                    : "dark:hover:bg-foreground dark:hover:text-background"
-                }`}
-                onClick={() => router.push("/settings/plans")}
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                {t("navigation.plans")}
-              </Button>
-            )}
+           
        
             {!userProfile?.organisation?.id && (
               <Button
