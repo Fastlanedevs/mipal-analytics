@@ -171,8 +171,7 @@ export default function IntegrationsPage() {
         description: t("microsoftIntegrationsWillBeAvailableSoon"),
         variant: "default",
       });
-    } else if (integrationId === "slack") {
-      window.location.href = `${appUrl}/api/integrations/slack`;
+    // Slack integration removed
     } else if (integrationId === "github") {
       window.location.href = `${appUrl}/api/integrations/github`;
     } else if (integrationId === "postgresql") {

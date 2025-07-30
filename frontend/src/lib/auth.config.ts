@@ -2,7 +2,7 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import SlackProvider from "next-auth/providers/slack";
+// Slack provider removed
 import CredentialsProvider from "next-auth/providers/credentials";
 import { parseAuthResponse } from "@/lib/auth-helpers";
 import type { User } from "next-auth";
@@ -141,10 +141,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
     }),
-    SlackProvider({
-      clientId: process.env.SLACK_CLIENT_ID!,
-      clientSecret: process.env.SLACK_CLIENT_SECRET!,
-    }),
+    // Slack provider removed
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
