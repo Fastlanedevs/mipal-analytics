@@ -326,38 +326,7 @@ export default function AuthPage() {
 
         {!isVerifying && (
           <>
-            <div className="flex items-center my-4">
-              <div className="flex-grow h-px bg-gray-300 dark:bg-gray-700"></div>
-              <span className="px-3 text-sm text-gray-500 dark:text-gray-400">
-                {t("orContinueWith")}
-              </span>
-              <div className="flex-grow h-px bg-gray-300 dark:bg-gray-700"></div>
-            </div>
-
-            {/* <div className="grid grid-cols-2 gap-4"> */}
-            <div className="grid gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex items-center justify-center gap-2"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-              >
-                <GoogleIcon className="h-5 w-5" />
-                Google
-              </Button>
-              {/* <Button
-                type="button"
-                variant="outline"
-                className="flex items-center justify-center gap-2"
-                onClick={handleMicrosoftSignIn}
-                disabled={isLoading}
-              >
-                <MicrosoftIcon className="h-5 w-5" />
-                Microsoft
-              </Button> */}
-            </div>
-
+           
             {/* Terms acceptance message */}
             <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
               {t("byContinuingYouAgreeToMIPALs")}{" "}
