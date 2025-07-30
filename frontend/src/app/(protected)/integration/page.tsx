@@ -1,11 +1,6 @@
 "use client";
 import React from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import GoogleDriveIcon from "@/assets/svg/GoogleDriveIcon";
-import GmailIcon from "@/assets/svg/GmailIcon";
-import GoogleCalendarIcon from "@/assets/svg/GoogleCalendarIcon";
-import OutlookIcon from "@/assets/svg/OutlookIcon";
-import OneDriveIcon from "@/assets/svg/OneDriveIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -27,17 +22,14 @@ import {
   SYNC_STATUS,
 } from "@/store/services/syncApi";
 import LoadingScreen from "@/components/common/LoadingScreen";
-import SlackIcon from "@/assets/svg/SlackIcon";
 import { PageHeader } from "@/components/common/PageHeader";
-import Teams from "@/assets/svg/Teams";
-import MicrosoftIcon from "@/assets/svg/MicrosoftIcon";
-import { GoogleIcon } from "@/assets/svg/GoogleIcon";
+
 import {
   INTEGRATION_TYPES,
   IntegrationType,
   Integration,
 } from "@/store/services/integrationApi";
-import MicrosoftCalendar from "@/assets/MicrosoftCalendar";
+
 import PostgresIcon from "@/assets/svg/PostgresIcon";
 import { PostgresModal } from "@/components/modals/PostgresModal";
 import { useTour } from "@/contexts/TourContext";
@@ -158,30 +150,8 @@ export default function IntegrationsPage() {
   const handleConnect = async (integrationId: string) => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
-    if (integrationId.startsWith("google-")) {
-      const service = integrationId.replace("google-", "");
-      if (service === "CALENDAR") {
-        toast({
-          title: t("comingSoon"),
-          description: t("googleCalendarIntegrationWillBeAvailableSoon"),
-          variant: "default",
-        });
-      } else {
-        window.location.href = `${appUrl}/api/integrations/google-workspace?service=${service}`;
-      }
-    } else if (integrationId.startsWith("microsoft-")) {
-      // disabled for now
-      // const service = integrationId.replace("microsoft-", "");
-      // window.location.href = `${appUrl}/api/integrations/azure?service=${service}`;
-      // Don't connect for Microsoft services as they're coming soon
-      toast({
-        title: t("comingSoon"),
-        description: t("microsoftIntegrationsWillBeAvailableSoon"),
-        variant: "default",
-      });
-    } else if (integrationId === "slack") {
-      window.location.href = `${appUrl}/api/integrations/slack`;
-    } else if (integrationId === "github") {
+    // Google, Microsoft, and Slack integrations removed
+    if (integrationId === "github") {
       window.location.href = `${appUrl}/api/integrations/github`;
     } else if (integrationId === "postgresql") {
       setIsPostgresModalOpen(true);
@@ -412,18 +382,9 @@ export default function IntegrationsPage() {
   }) => {
     const [startSync] = useStartSyncMutation();
 
-    // Update integrationType logic to handle Google services
+    // Integration type logic - only PostgreSQL supported
     const getIntegrationType = (integrationId: string) => {
-      if (integrationId.startsWith("google-")) {
-        // Extract the service type (e.g., 'google-drive' -> 'GOOGLE_DRIVE')
-        const serviceType = integrationId.replace("google-", "").toUpperCase();
-        return serviceType;
-      } else if (integrationId.startsWith("microsoft-")) {
-        const serviceType = integrationId
-          .replace("microsoft-", "")
-          .toUpperCase();
-        return serviceType;
-      } else if (integrationId.startsWith("postgresql_")) {
+      if (integrationId.startsWith("postgresql_")) {
         return "POSTGRESQL";
       } else if (integrationId === "postgresql") {
         return "POSTGRESQL";

@@ -9,7 +9,6 @@ import { syncApi } from "./services/syncApi";
 import { listenerMiddleware } from "./middleware/apiMiddleware";
 import { palApi } from "./services/palApi";
 import { dashboardApi } from "./services/dashboardApi";
-import { stripeApi } from "./services/stripeApi";
 import { analyticsApi } from "./services/analyticsApi";
 import { chartsApi } from "./services/chartsApi";
 import { analyticsApiFormData } from "./services/analyticsApi";
@@ -46,7 +45,6 @@ const rootReducer = combineReducers({
   [filesApi.reducerPath]: filesApi.reducer,
   [palApi.reducerPath]: palApi.reducer,
   [dashboardApi.reducerPath]: dashboardApi.reducer,
-  [stripeApi.reducerPath]: stripeApi.reducer,
   [analyticsApi.reducerPath]: analyticsApi.reducer,
   [intentApi.reducerPath]: intentApi.reducer,
   [chartsApi.reducerPath]: chartsApi.reducer,
@@ -81,7 +79,6 @@ export const store = configureStore({
       filesApi.middleware,
       palApi.middleware,
       dashboardApi.middleware,
-      stripeApi.middleware,
       listenerMiddleware.middleware,
       analyticsApi.middleware,
       analyticsApiFormData.middleware,

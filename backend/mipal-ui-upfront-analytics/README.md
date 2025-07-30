@@ -1,1 +1,0 @@
-# sales-pitch-copilot
