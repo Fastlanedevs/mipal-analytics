@@ -11,9 +11,6 @@ from pkg.db_util.types import PostgresConfig
 from pkg.redis.client import RedisClient
 from pkg.kms.kms_client import KMSClient
 from conf.config import AppConfig
-from pkg.lambda_service.lambda_client import LambdaClient
-# Core Components
-from app.code_execution.adapter.lambda_adapter import LambdaAdapter
 from app.code_execution.repository.execution_repository import ExecutionRepository
 from app.code_execution.service.execution_service import ExecutionService
 from app.code_execution.service.queue_service import QueueService
@@ -48,21 +45,6 @@ class Container(containers.DeclarativeContainer):
         password=config.redis.password,
         logger=logger,
     )
-    lambda_client = providers.Singleton(
-        LambdaClient,
-        logger=logger,
-        region_name=config.aws.aws_region,
-        function_name=config.aws.lambda_function_name,
-        aws_access_key_id=config.aws.aws_access_key_id,
-        aws_secret_access_key=config.aws.aws_secret_access_key,
-    )
-    # --- AWS Lambda Adapter ---
-    lambda_adapter = providers.Singleton(
-        LambdaAdapter,
-        lambda_client=lambda_client,
-        logger=logger,
-    )
-
 
     # --- Repositories ---
     execution_repository = providers.Singleton(
@@ -84,7 +66,6 @@ class Container(containers.DeclarativeContainer):
     execution_service = providers.Singleton(
         ExecutionService,
         execution_repository=execution_repository,
-        lambda_adapter=lambda_adapter,
         queue_service=queue_service,
         redis_client=redis_client,
         logger=logger,

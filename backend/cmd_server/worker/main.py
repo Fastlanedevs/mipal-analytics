@@ -12,15 +12,11 @@ from app.analytics.repository.analytics_repository import AnalyticsRepository
 from app.integrations.adapter.integration_client import IntegrationClient
 from app.integrations.repository.integration_repository import IntegrationRepository
 from app.integrations.service.integration_service import IntegrationService
-from app.knowledge_base.adapter.gsuite_adapter import GSuiteAdapterNew
 from app.knowledge_base.adapter.integration_adapter import IntegrationAdapter
-from app.knowledge_base.adapter.llm_adapter import LLMAdapter
 from app.knowledge_base.event_handler.handler import KnowledgeBaseEventHandler
 from app.knowledge_base.event_handler.subscriber_worker import KnowledgeBaseWorker
 from app.knowledge_base.repository.sql_repository import KnowledgeBaseRepository
 from app.knowledge_base.service.ingestion_service import KnowledgeIngestionService
-from app.tokens.service.stripe_service import StripeService
-from integration_clients.g_suite.client import GSuiteClient
 from conf.config import AppConfig
 from pkg.db_util.neo4j_conn import Neo4jConnection
 from pkg.db_util.types import DatabaseConfig, PostgresConfig
@@ -32,7 +28,6 @@ from pkg.pub_sub.publisher import Publisher
 from pkg.pub_sub.subscriber import Subscriber
 from pkg.sqs.client import SQSClient
 from app.analytics.service.postgres_service import PostgresService
-from app.knowledge_base.service.process_document import ProcessDocumentService
 from app.knowledge_base.repository.neo4j_repository import Neo4jRepository
 
 # Add chart-related imports
@@ -144,19 +139,14 @@ class WorkerServer:
 
         # Initialize service components
         tokens_repository = TokensRepository(sql_db_conn, self.logger)
-        stripe_service = StripeService(config.stripe.stripe_secret_key, tokens_repository, self.logger)
-        tokens_service = TokensService(tokens_repository, self.logger, stripe_service)
-        g_suite_client = GSuiteClient(
-            config.google_oauth.client_id, config.google_oauth.client_secret, self.logger
-        )
-        integration_client = IntegrationClient(g_suite_client, self.logger)
+        tokens_service = TokensService(tokens_repository, self.logger)
+        integration_client = IntegrationClient( self.logger)
         integration_repo = IntegrationRepository(sql_db_conn, publisher, self.logger)
         integration_service = IntegrationService(
             integration_client, integration_repo, self.logger
         )
         knowledge_repository = KnowledgeBaseRepository( sql_db_conn, self.logger)
         neo4j_repository = Neo4jRepository(db_conn, self.logger)
-        gsuite_adapter = GSuiteAdapterNew(g_suite_client, self.logger)
         llm_client = LLMClient(
             config.openai.openai_api_key, config.openai.groq_api_key,
             config.openai.gemini_api_key, self.logger, tokens_service
@@ -164,23 +154,15 @@ class WorkerServer:
         integration_adapter = IntegrationAdapter(
             integration_service, self.logger
         )
-        llm_adapter = LLMAdapter(self.logger, llm_client)
 
         analytics_repository = AnalyticsRepository(db_conn, self.logger)
         postgres_service = PostgresService(analytics_repository, self.logger)
-        process_document_service = ProcessDocumentService(self.logger, knowledge_repository, llm_adapter, neo4j_repository)
-
         # Initialize knowledge ingestion service
         knowledge_ingestion_service = KnowledgeIngestionService(
             self.logger,
             knowledge_repository,
             integration_adapter,
-            gsuite_adapter,
-            llm_adapter,
-            config.google_oauth.client_id,
-            config.google_oauth.client_secret,
             postgres_service,
-            process_document_service
         )
 
         # Initialize event handler and worker
@@ -193,6 +175,7 @@ class WorkerServer:
             knowledge_base_handler, sync_documents_subscriber, self.logger,
             shutdown_timeout=30  # Timeout for graceful shutdown
         )
+        llm_adapter = LLMAdapter(self.logger, llm_client)
 
         # Initialize chart-related services
         await self._initialize_chart_services(config, db_conn, sql_db_conn, llm_client, tokens_service, llm_adapter)

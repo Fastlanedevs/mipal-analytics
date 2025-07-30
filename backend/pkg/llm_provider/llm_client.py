@@ -607,26 +607,3 @@ class LLMClient:
                     description="Refund for failed image description request"
                 )
             raise e
-
-
-if __name__ == "__main__":
-    # Example usage
-    import os, asyncio
-    from pkg.prompts.extract_entities_relations import get_extract_entities_relation_prompt
-    llm_client = LLMClient(
-        openai_api_key=os.environ.get("OPENAI_API_KEY"),
-        groq_api_key=os.environ.get('GROQ_API_KEY'),
-        google_api_key=os.environ.get('GEMINI_API_KEY'),
-        logger=Logger(),
-        tokens_service=None,
-        bedrock_anthropic_client=None
-    )
-
-    response = asyncio.run( llm_client.get_response(
-
-        prompt="Paris is the capital of France. France is a beautiful country. Paris is known for its Eiffel Tower.",
-        model=LLMModel.GEMINI_2_0_FLASH,
-        system_msg= get_extract_entities_relation_prompt(),
-        response_format= {"type":"text"}
-    ))
-    print(response)

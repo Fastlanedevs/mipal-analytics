@@ -9,7 +9,7 @@ import warnings
 from app.code_execution.entity.code_execution_entity import CodeExecution
 from app.code_execution.entity.value_objects import ExecutionStatus, ExecutionResult
 from app.code_execution.repository.execution_repository import IExecutionRepository
-from app.code_execution.service.service import IExecutionService, ILambdaAdapter
+from app.code_execution.service.service import IExecutionService
 from app.code_execution.service.queue_service import QueueService
 from pkg.log.logger import Logger
 from pkg.redis.client import RedisClient
@@ -22,18 +22,15 @@ import time
 
 
 class ExecutionService(IExecutionService):
-    """Service for managing code executions using Lambda with a queue for async processing"""
 
     def __init__(
             self,
             execution_repository: IExecutionRepository,
-            lambda_adapter: ILambdaAdapter,
             queue_service: QueueService,
             redis_client: RedisClient,
             logger: Logger
     ):
         self.repository = execution_repository
-        self.lambda_adapter = lambda_adapter
         self.queue_service = queue_service
         self.redis_client = redis_client
         self.logger = logger
@@ -122,7 +119,6 @@ class ExecutionService(IExecutionService):
     async def execute_code_sync(self, code: str,
                                 input_data: Optional[Dict[str, Any]] = None) -> Tuple[CodeExecution, bool, Optional[str]]:
         """
-        Execute code synchronously using Lambda without using the queue.
         This provides immediate execution and response.
         
         Returns:
@@ -131,7 +127,6 @@ class ExecutionService(IExecutionService):
             - Success flag
             - Error message (if any)
         """
-        self.logger.info("Executing code synchronously via Lambda")
         
         try:
             # 1. Create execution record with PROCESSING status (bypass QUEUED)
@@ -144,11 +139,6 @@ class ExecutionService(IExecutionService):
             self.logger.info(f"Code execution successful for ID: {execution.id}")
             self.logger.info(f"Created execution record with ID: {execution.id}")
 
-            # 2. Execute code directly via Lambda
-            result, metrics = await self.lambda_adapter.execute_code(
-                code=code,
-                input_data=input_data
-            )
             
             # 3. Filter warnings from stderr before checking for errors
             filtered_stderr = self._filter_warnings_from_stderr(result.stderr)
@@ -375,100 +365,6 @@ class ExecutionService(IExecutionService):
             # Re-queue in case of error
             await self.queue_service.enqueue_execution(execution_id)
             raise
-
-    async def execute_code(self, execution_id: uuid.UUID) -> Tuple[bool, Optional[str]]:
-        """
-        Execute code for a previously queued execution using Lambda.
-        This is called after process_next_execution has marked the execution as PROCESSING.
-        
-        Returns:
-            Tuple of (success, error_message)
-        """
-        try:
-            # Get execution details
-            execution = await self.repository.get_execution(execution_id)
-            if not execution or execution.status != ExecutionStatus.PROCESSING:
-                return False, "Invalid execution state"
-
-            self.logger.info(f"Executing code for execution {execution_id} via Lambda")
-
-            # Execute code using Lambda
-            try:
-                result, metrics = await self.lambda_adapter.execute_code(
-                    code=execution.code,
-                    input_data=execution.input_data
-                )
-            except Exception as execution_error:
-                error = f"Error executing code via Lambda: {str(execution_error)}"
-                self.logger.error(f"{error} for execution {execution_id}")
-                await self.repository.fail_execution(
-                    execution_id=execution_id,
-                    error_message=error
-                )
-                await self._update_execution_status_cache(execution_id, ExecutionStatus.FAILED)
-                # Mark as complete in queue
-                await self.queue_service.complete_processing(execution_id)
-                return False, error
-
-            # Filter warnings from stderr before checking for errors
-            filtered_stderr = self._filter_warnings_from_stderr(result.stderr)
-
-            # Check for execution error (using filtered stderr)
-            if result.exit_code != 0:
-                error_msg = f"Execution failed with exit code {result.exit_code}. {filtered_stderr}"
-                self.logger.warning(f"Execution {execution_id} failed: {error_msg}")
-                await self.repository.fail_execution(
-                    execution_id=execution_id,
-                    error_message=error_msg
-                )
-                await self._update_execution_status_cache(execution_id, ExecutionStatus.FAILED)
-                # Mark as complete in queue
-                await self.queue_service.complete_processing(execution_id)
-                return False, error_msg
-
-            # Create filtered result object
-            filtered_result = ExecutionResult(
-                stdout=result.stdout,
-                stderr=filtered_stderr,
-                exit_code=result.exit_code,
-                execution_time_ms=result.execution_time_ms,
-                memory_usage_kb=result.memory_usage_kb,
-                output_files=result.output_files
-            )
-
-            # Complete execution with filtered result
-            self.logger.info(f"Execution {execution_id} completed successfully")
-            await self.repository.complete_execution(
-                execution_id=execution_id,
-                result=filtered_result,
-                metrics=metrics
-            )
-
-            # Update cache
-            await self._update_execution_status_cache(execution_id, ExecutionStatus.COMPLETED)
-            
-            # Mark as complete in queue
-            await self.queue_service.complete_processing(execution_id)
-
-            return True, None
-
-        except Exception as e:
-            error_message = f"Error executing code: {str(e)}"
-            self.logger.error(f"{error_message} for execution {execution_id}")
-
-            # Mark execution as failed
-            await self.repository.fail_execution(
-                execution_id=execution_id,
-                error_message=error_message
-            )
-
-            # Update cache
-            await self._update_execution_status_cache(execution_id, ExecutionStatus.FAILED)
-            
-            # Mark as complete in queue
-            await self.queue_service.complete_processing(execution_id)
-
-            return False, error_message
 
     async def cancel_execution(self, execution_id: uuid.UUID) -> bool:
         """

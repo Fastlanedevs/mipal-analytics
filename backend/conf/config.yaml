@@ -22,11 +22,6 @@ postgres:
   password: ${oc.env:POSTGRES_PASSWORD}
   database: ${oc.env:POSTGRES_DATABASE}
 
-
-google_oauth:
-  client_id: ${oc.env:GOOGLE_OAUTH_CLIENT_ID}
-  client_secret: ${oc.env:GOOGLE_OAUTH_CLIENT_SECRET}
-
 jwt_auth:
   super_secret_key: ${oc.env:JWT_SUPER_SECRET}
   refresh_secret_key: ${oc.env:JWT_REFRESH_SECRET}
@@ -60,21 +55,7 @@ slack:
   client_secret: ${oc.env:SLACK_CLIENT_SECRET}
   signing_secret: ${oc.env:SLACK_SIGNING_SECRET}
 
-stripe:
-  stripe_secret_key: ${oc.env:STRIPE_SECRET_KEY}
-  stripe_webhook_secret: ${oc.env:STRIPE_WEBHOOK_SECRET}
 
 service_url:
   code_execution_url: ${oc.env:CODE_EXECUTION_SERVICE_URL}
-
-
-
-
-
-deep_research:
-  clarity_model_name: ${oc.env:DEEP_RESEARCH_CLARITY_MODEL, "GPT_4_1_MINI"}
-  task_planner_model: ${oc.env:DEEP_RESEARCH_TASK_PLANNER_MODEL, "gpt-4.1-mini"}
-  browser_model: ${oc.env:DEEP_RESEARCH_BROWSER_MODEL, "gpt-4.1-mini"}
-  analysis_model: ${oc.env:DEEP_RESEARCH_ANALYSIS_MODEL, "gpt-4.1-mini"}
-  log_cleaner_model: ${oc.env:DEEP_RESEARCH_LOG_CLEANER_MODEL, "openai:gpt-4.1-mini"}
 

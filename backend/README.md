@@ -1,10 +1,3 @@
-# Business Process automation using Autogen
-
-
-## Overview
-This project aims to create an AI-powered ecosystem to assist enterprises and employees in automating their routine tasks and increase their productivity.
-PALs to assist in the creation of a customised workflows using an agentic approach .
-
 ### How to Use
 
 1. Install dependencies ```make install```

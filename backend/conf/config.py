@@ -16,12 +16,6 @@ class Neo4jConfig:
 
 
 @dataclass
-class GoogleOAuthConfig:
-    client_id: str
-    client_secret: str
-
-
-@dataclass
 class JWTAuthConfig:
     super_secret_key: str
     refresh_secret_key: str
@@ -86,21 +80,6 @@ class PostgresConfig:
     password: str
 
 
-@dataclass
-class StripeConfig:
-    stripe_secret_key: str
-    stripe_webhook_secret: str
-
-# <<< Define DeepResearchConfig >>>
-@dataclass
-class DeepResearchConfig:
-    # Define fields matching your config.yaml, provide defaults or use MISSING
-    clarity_model_name: str = "GPT_4_1_MINI"
-    task_planner_model: str = "gpt-4o-mini" # Default or MISSING
-    browser_model: str = "gpt-4o-mini"      # Default or MISSING
-    analysis_model: str = "gpt-4o-mini"     # Default or MISSING
-    log_cleaner_model: str = "gpt-4o-mini"   # Default or MISSING
-    # Add other fields if needed
 
 
 @dataclass
@@ -111,17 +90,13 @@ class ServiceURL:
 @dataclass
 class AppConfig:
     neo4j: Neo4jConfig
-    google_oauth: GoogleOAuthConfig
     jwt_auth: JWTAuthConfig
     smtp: SMTPConfig
     openai: OpenAIConfig
     queue: QueueConfig
     redis: RedisConfig
     slack: Slack
-    stripe: StripeConfig
     aws: AWSConfig
     postgres: PostgresConfig
-    stripe: StripeConfig
     service_url: ServiceURL
-    deep_research: DeepResearchConfig = MISSING # <<< Add deep_research field
 

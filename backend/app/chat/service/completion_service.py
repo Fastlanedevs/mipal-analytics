@@ -1,23 +1,20 @@
-from app.pal.chat.agent import ChatAgent  # Updated import for our new ChatAgent
+
 from app.pal.analytics.analytics_workflow import AnalyticsPAL
-from app.pal.knowledge_pal.agent import KnowledgePalAgent
 from app.chat.service.chat_service import ChatService
 from pkg.log.logger import Logger
 
-from app.chat.entity.chat import Conversation, Message, Document, CompletionRequest, Suggestion, SuggestionContent, \
-    Artifact, KnowledgeResponse, Reference
-from typing import AsyncGenerator, Dict, Any, Union, List
+from app.chat.entity.chat import Conversation, CompletionRequest, Suggestion, SuggestionContent, \
+    Artifact
+from typing import AsyncGenerator, Dict, Any, Union
 from uuid import UUID
 import asyncio
 import json
 
 
 class ChatCompletionService:
-    def __init__(self, chat_service: ChatService, chat_agent: ChatAgent, analytics_pal: AnalyticsPAL, logger: Logger,
-                 knowledge_pal: KnowledgePalAgent):
+    def __init__(self, chat_service: ChatService,  analytics_pal: AnalyticsPAL, logger: Logger,
+):
         self.chat_service: ChatService = chat_service
-        self.chat_agent: ChatAgent = chat_agent
-        self.knowledge_pal: KnowledgePalAgent = knowledge_pal
         self.analytics_pal: AnalyticsPAL = analytics_pal
         self.logger: Logger = logger
         self._external_call_timeout = 360  # seconds
@@ -63,98 +60,6 @@ class ChatCompletionService:
                 async for item in self._process_analyst_pal(user_id, completion_request, conversation_id, chunks,
                                                             suggestions, artifacts, meta_contents):
                     yield item
-            else:
-                if conversation.model == "KNOWLEDGE_PAL":
-                    # Knowledge PAL processing using new streaming method
-                    # Format the conversation history into a list of messages
-                    conversation_history = conversation.messages if hasattr(conversation, 'messages') else []
-                    
-                    async for item in self.knowledge_pal.stream_knowledge_response(
-                            user_id=user_id,
-                            request=completion_request,
-                            conversation_history=conversation_history
-                    ):
-                        if isinstance(item, str):
-                            # Handle plain string responses for backward compatibility
-                            chunks.append(item)
-                            yield item
-                        elif isinstance(item, Reference):
-                            references.append(item)
-                            self.logger.info(f"Received document references from KnowledgePAL")
-                            yield {"type": "references", "references": item}
-                        elif isinstance(item, dict):
-                            # Handle legacy dictionary format for backward compatibility
-                            if item.get("type") == "references":
-                                # Process references from knowledge PAL
-                                if "references" in item and item["references"]:
-                                    references.extend(item["references"])
-                                    self.logger.info(f"Received {len(item['references'])} document references from KnowledgePAL")
-                                # Forward references to client
-                                async for ref_item in self._handle_references_response(item, references):
-                                    yield ref_item
-                            elif item.get("type") == "meta_content":
-                                meta_contents.append(item["meta_content"])
-                                async for value in self._handle_meta_content_response(item):
-                                    yield value
-                            else:
-                                content = item.get("content", "")
-                                if content:
-                                    chunks.append(content)
-                                    yield content
-                else:
-                    # For all other model types including None, use ChatAgent
-                    async with asyncio.timeout(self._external_call_timeout):
-                        # Process the completion using the ChatAgent
-                        # First format the conversation history into a list of messages
-                        conversation_history = conversation.messages if hasattr(conversation, 'messages') else []
-
-                        async for response in self.chat_agent.stream_completion_request(
-                            user_id=user_id,
-                            request=completion_request,
-                            conversation_history=conversation_history
-                        ):
-                            if isinstance(response, str):
-                                # Handle string responses
-                                chunks.append(response)
-                                yield response
-                            # Handle suggestions
-                            elif isinstance(response, dict) and response.get("type") == "suggestions":
-                                async for item in self._handle_suggestions_response(response, suggestions):
-                                    yield item
-                            # Handle artifacts
-                            elif isinstance(response, dict) and response.get("type") == "artifacts":
-                                async for item in self._handle_artifacts_response(response, artifacts):
-                                    yield item
-                            # Handle meta content
-                            elif isinstance(response, dict) and response.get("type") == "meta_content":
-                                # Store the meta_content for later use when saving the message
-                                if "meta_content" in response and response["meta_content"]:
-                                    meta_contents.append(response["meta_content"])
-                                async for item in self._handle_meta_content_response(response):
-                                    yield item
-                            # Handle data summary delta
-                            elif isinstance(response, dict) and response.get("type") == "data_summary_delta":
-                                async for item in self._handle_data_summary_delta_response(response):
-                                    yield item
-                            elif isinstance(response, dict) and response.get("type") == "references":
-                                # Store the references for later use when saving the message
-                                if "references" in response and response["references"]:
-                                    references.extend(response["references"])
-                                async for item in self._handle_references_response(response, references):
-                                    yield item
-                            elif isinstance(response, dict):
-                                # Handle other dictionary responses
-                                content = response.get("content", response.get("response", ""))
-                                if content:
-                                    chunks.append(content)
-                                    yield content
-                            else:
-                                # Handle unexpected response types
-                                self.logger.error(f"Unexpected response type: {type(response)}")
-                                error_msg = f"Unexpected response type: {type(response)}"
-                                chunks.append(error_msg)
-                                yield error_msg
-
 
         except asyncio.CancelledError:
             self.logger.warning(f"Completion request cancelled for user {user_id}, conversation {conversation_id}")

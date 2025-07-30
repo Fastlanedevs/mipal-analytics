@@ -2,9 +2,7 @@ from fastapi import APIRouter, Response
 
 from app.auth.api.dependencies import AuthHandlerDep
 from app.auth.api.dto import (
-    AzureAuthDTO,
     EmailVerificationDTO,
-    GoogleAuthDTO,
     LoginDTO,
     PasswordResetDTO,
     PasswordResetRequestDTO,
@@ -39,27 +37,6 @@ async def login(login_data: LoginDTO, response: Response, auth_handler: AuthHand
     return await auth_handler.login(login_data)
 
 
-@auth_router.post("/google")
-async def google_auth(
-    google_data: GoogleAuthDTO, response: Response, auth_handler: AuthHandlerDep
-):
-    """Authenticate with Google"""
-    return await auth_handler.google_auth(google_data)
-
-
-@auth_router.post("/azure")
-async def azure_auth(azure_data: AzureAuthDTO, auth_handler: AuthHandlerDep):
-    """Authenticate with Azure"""
-    try:
-        return await auth_handler.azure_auth(azure_data)
-    except Exception as e:
-        auth_handler.logger.error(f"Error in Azure authentication: {e!s}")
-        raise e
-    except ValidationError as ve:
-        auth_handler.logger.error(
-            f"Validation error in Azure authentication: {ve.errors()}"
-        )
-        raise HTTPException(status_code=422, detail=ve.errors())
 
 
 @auth_router.post("/refresh")

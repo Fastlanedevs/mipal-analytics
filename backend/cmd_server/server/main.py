@@ -11,38 +11,19 @@ from typing import Callable, Dict, Any
 
 import app.auth.api.routes as auth_routes
 import app.chat.api.routes as chat_routes
-import app.dashboard.api.routes as dashboard_routes
 import app.integrations.api.routes as integrations_routes
-import app.knowledge_base.api.routes as knowledge_base_routes
 import app.user.api.routes as user_routes
-import app.tokens.api.stripe_routes as stripe_routes
-import app.sourcing.api.routes as sourcing_routes
 from app.auth.api.routes import auth_router
 from app.chat.api.routes import chat_router
-from app.dashboard.api.routes import dashboard_router
 from app.integrations.api.routes import integration_router
-from app.knowledge_base.api.routes import knowledge_base_router
 from app.middleware import AuthMiddleware  # Import the new middleware
 from app.user.api.routes import user_router
-from app.tokens.api.stripe_routes import stripe_router
-from app.sourcing.api.routes import sourcing_router
 from cmd_server.server.container import Container, create_container
-from app.chatbot.api.routes import chatbot_router
-import app.chatbot.api.routes as chatbot_routes
 import app.analytics.api.routes as analytics_routes
 from app.analytics.api.routes import analytics_router
 from app.tokens.api.routes import tokens_router
 import app.tokens.api.routes  as tokens_routes
-import app.pal.deep_research.api.routes as deep_research_api_routes
-from app.pal.deep_research.api.routes import deep_research_router
 
-# Import new models to ensure they are registered with Base.metadata
-from app.pal.deep_research.repository.sql_schema import tasks as deep_research_tasks_schema
-
-import app.admin.api.routes as admin_routes
-from app.admin.api.routes import admin_router
-import app.rfq_bundling.api.router as rfq_routes
-from app.rfq_bundling.api.router import rfq_router
 
 class TimeoutMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: FastAPI, timeout: int = 300):
@@ -123,18 +104,11 @@ def create_app() -> FastAPI:
     app.include_router(user_router)
     app.include_router(integration_router)
     app.include_router(chat_router)
-    app.include_router(knowledge_base_router)
-    app.include_router(dashboard_router)
-    app.include_router(stripe_router)
-    app.include_router(sourcing_router)
-
-    app.include_router(chatbot_router)
     app.include_router(analytics_router)
 
     app.include_router(tokens_router)
-    app.include_router(deep_research_router)
     app.include_router(admin_router)
-    app.include_router(rfq_router)
+
     # Wire the container to both route modules
     container.wire(
         modules=[
@@ -142,16 +116,9 @@ def create_app() -> FastAPI:
             user_routes,
             integrations_routes,
             chat_routes,
-            knowledge_base_routes,
-            dashboard_routes,
-            stripe_routes,
-            chatbot_routes,
             analytics_routes,
             tokens_routes,
-            sourcing_routes,
-            deep_research_api_routes,
             admin_routes,
-            rfq_routes
         ]
     )
     db_initializer = container.db_initializer()

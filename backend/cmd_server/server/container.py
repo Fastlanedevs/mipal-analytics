@@ -1,8 +1,7 @@
 from dependency_injector import containers, providers
 from omegaconf import DictConfig, OmegaConf
 
-from app.agents.generic_chat import GenericChat
-from app.agents.pal_meta_agent import PALMetaAgent
+
 from app.analytics.service.chart_queue_service import ChartQueueService
 from app.auth.api.handlers import AuthHandler
 from app.auth.service.auth_service import AuthService
@@ -11,29 +10,21 @@ from app.chat.api.handlers import ChatHandler
 from app.chat.repository.chat_repository import ChatRepository
 from app.chat.service.chat_service import ChatService
 from app.chat.service.completion_service import ChatCompletionService
-from app.dashboard.api.handlers import ProductionDashboardHandler
-from app.dashboard.repository.repository import ProductionDashboardRepository
-from app.dashboard.service.service import ProductionDashboardService
+
 from app.integrations.adapter.integration_client import IntegrationClient
 from app.integrations.api.handlers import IntegrationHandler
 from app.integrations.repository.integration_repository import IntegrationRepository
 from app.integrations.service.integration_service import IntegrationService
-from app.knowledge_base.adapter.gsuite_adapter import GSuiteAdapterNew
+
 from app.knowledge_base.adapter.integration_adapter import IntegrationAdapter
-from app.knowledge_base.adapter.llm_adapter import LLMAdapter as LLMKnowledgeBaseAdapter
-from app.knowledge_base.api.handler import KnowledgeBaseHandler
 from app.knowledge_base.repository.sql_repository import KnowledgeBaseRepository
 from app.knowledge_base.repository.neo4j_repository import Neo4jRepository
 from app.knowledge_base.service.ingestion_service import KnowledgeIngestionService
-from app.knowledge_base.service.retrieval_service import KnowledgeRetrievalService
-from app.knowledge_base.service.process_document import ProcessDocumentService
+
 from app.pal.analytics.analytics_workflow import AnalyticsPAL
-from app.sourcing.api.handlers import SourcingHandler, DocumentHandler
-from app.sourcing.service.sourcing_service import SourcingService
 from app.user.api.handlers import UserHandler
 from app.user.repository.user_repository import UserRepository
 from app.user.service.user_service import UserService
-from integration_clients.g_suite.client import GSuiteClient
 from pkg.auth_token_client.client import TokenClient
 from conf.config import AppConfig
 from pkg.db_util.neo4j_conn import Neo4jConnection
@@ -41,14 +32,12 @@ from pkg.db_util.postgres_conn import PostgresConnection
 from pkg.db_util.types import DatabaseConfig, PostgresConfig
 from pkg.kms.kms_client import KMSClient
 from pkg.llm_provider.llm_client import LLMClient, LLMModel
-from pkg.llm_provider.claude_aws.claude_client import BedrockAnthropicClient
 from pkg.log.logger import Logger
 from pkg.pub_sub.publisher import Publisher
 from pkg.smtp_client.client import EmailClient, EmailConfig
 from pkg.sqs.client import SQSClient
 from pkg.redis.client import RedisClient
-from app.chatbot.api.handlers import ChatbotHandler
-from app.chatbot.service.service import ChatbotService
+
 from app.analytics.repository.analytics_repository import AnalyticsRepository
 from app.analytics.repository.storage.s3_client import SchemaS3Client
 from app.analytics.service.postgres_service import PostgresService
@@ -62,30 +51,16 @@ from app.analytics.api.handlers import DashboardHandler, DashboardCollaborationH
 from app.pal.analytics.executors.sql_executor import SQLExecutor
 from app.pal.analytics.executors.csv_executor import CSVExecutor
 from app.pal.analytics.executors.python_executor import PythonExecutor
-from app.automation.api.handlers import AutomationHandler
 from app.analytics.service.dashboard_service import DashboardService
 from app.analytics.service.dashboard_collaboration_service import DashboardCollaborationService
 from app.tokens.service.service import TokensService
 from app.tokens.repository.repository import TokensRepository
 from app.tokens.api.handler import TokensHandler
-from app.tokens.api.stripe_handler import StripeHandler
-from app.tokens.service.stripe_service import StripeService
+
 from pkg.db_util.sql_alchemy.initializer import DatabaseInitializer
-from app.sourcing.repository.sourcing_repository import SourcingRepository
 from app.analytics.repository.dashboard_repository import DashboardRepository
-from app.sourcing.service.document_service import DocumentService, DocumentGenerationService
 
 from app.code_execution.client.http_client import CodeExecutionClient
-from app.pal.chat.agent import ChatAgent
-from app.pal.knowledge_pal.agent import KnowledgePalAgent
-from app.agents.websearch_agent import WebSearchOrchestrator
-from app.admin.api.handlers import AdminHandler
-from app.admin.service.admin_service import AdminService
-from app.admin.repository.admin_repository import AdminRepository
-from app.rfq_bundling.service.service import RFQService
-from app.rfq_bundling.api.handler import RFQHandler
-from app.rfq_bundling.repository.repository import RFQRepository
-from app.rfq_bundling.agents.criteria_extraction import CriteriaExtractionAgent
 
 
 class Container(containers.DeclarativeContainer):
@@ -147,21 +122,12 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
     )
 
-    stripe_service = providers.Singleton(
-        StripeService,
-        stripe_secret_key=config.stripe.stripe_secret_key,
-        token_repository=tokens_repository,
-        logger=logger,
-    )
 
-    stripe_handler = providers.Singleton(StripeHandler,webhook_secret= config.stripe.stripe_webhook_secret ,
-                                         stripe_service= stripe_service, logger=logger)
 
     tokens_service = providers.Singleton(
         TokensService,
         tokens_repository=tokens_repository,
         logger=logger,
-        stripe_service=stripe_service
     )
 
     tokens_handler = providers.Singleton(
@@ -170,13 +136,6 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
     )
 
-    bedrock_anthropic_client = providers.Singleton(
-        BedrockAnthropicClient,
-        region=config.aws.region,
-        aws_access_key=config.aws.aws_access_key_id,
-        aws_secret_key=config.aws.aws_secret_access_key,
-        logger=logger,
-    )
 
     llm_client = providers.Singleton(
         LLMClient,
@@ -185,7 +144,6 @@ class Container(containers.DeclarativeContainer):
         google_api_key=config.openai.gemini_api_key,
         logger=logger,
         tokens_service=tokens_service,
-        bedrock_anthropic_client=bedrock_anthropic_client
     )
 
     code_execution_client = providers.Singleton(
@@ -215,49 +173,10 @@ class Container(containers.DeclarativeContainer):
     # Define LLM adapter first
     llm_adapter = providers.Singleton(LLMAdapter, llm_client=llm_client, logger=logger)
     
-    # Sourcing
-    sourcing_repository = providers.Singleton(
-        SourcingRepository,
-        db=db_conn,
-        logger=logger,
-        llm_adapter=llm_adapter
-    )
+
 
     # Define sourcing_service after llm_adapter is available
-    sourcing_service = providers.Singleton(
-        SourcingService,
-        repository=sourcing_repository,
-        llm_adapter=llm_adapter
-    )
-    
-    # Document service for handling document operations
-    document_service = providers.Singleton(
-        DocumentService,
-        repository=sourcing_repository,
-        s3_client=s3_client
-    )
-    document_generation_service = providers.Singleton(
-        DocumentGenerationService,
-        repository=sourcing_repository,
-        logger=logger,
-    )
-    sourcing_handler = providers.Singleton(
-        SourcingHandler,
-        sourcing_service=sourcing_service,
-        logger=logger,
-        document_service=document_service,
-        document_generation_service=document_generation_service
-    )
-    document_handler = providers.Singleton(
-        DocumentHandler,
-        sourcing_service=sourcing_service,
-        document_service=document_service,
-        document_generation_service=document_generation_service,
-        logger=logger,
-    )
 
-
-    
     # User
     user_repository = providers.Singleton(
         UserRepository,
@@ -277,17 +196,7 @@ class Container(containers.DeclarativeContainer):
         UserHandler, user_service=user_service, logger=logger
     )
 
-    # Chatbot
-    chatbot_service = providers.Singleton(
-        ChatbotService,
-        llm_client=llm_client,
-        logger=logger,
-    )
-    chatbot_handler = providers.Singleton(
-        ChatbotHandler,
-        chatbot_service=chatbot_service,
-        logger=logger,
-    )
+  
 
     # Auth
     auth_service = providers.Singleton(
@@ -296,8 +205,6 @@ class Container(containers.DeclarativeContainer):
         smtp_client=smtp_client,
         token_client=token_client,
         redis_client=redis_client,
-        google_oauth_client_id=config.google_oauth.client_id,
-        google_oauth_client_secret=config.google_oauth.client_secret,
         logger=logger,
     )
 
@@ -323,15 +230,9 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
     )
 
-    google_oauth_client = providers.Singleton(
-        GSuiteClient,
-        client_id=config.google_oauth.client_id,
-        client_secret=config.google_oauth.client_secret,
-        logger=logger,
-    )
 
     integration_client = providers.Singleton(
-        IntegrationClient, g_suite_client=google_oauth_client, logger=logger
+        IntegrationClient, logger=logger
     )
 
     integration_service = providers.Singleton(
@@ -342,13 +243,6 @@ class Container(containers.DeclarativeContainer):
     )
     integration_handler = providers.Singleton(
         IntegrationHandler, integration_service=integration_service, logger=logger
-    )
-    production_dashboard_repository = providers.Singleton(ProductionDashboardRepository, logger=logger)
-    production_dashboard_service = providers.Singleton(
-        ProductionDashboardService, repository=production_dashboard_repository, logger=logger
-    )
-    production_dashboard_handler = providers.Singleton(
-        ProductionDashboardHandler, production_dashboard_service=production_dashboard_service, logger=logger
     )
 
     # Knowledge Base dependencies
@@ -361,23 +255,10 @@ class Container(containers.DeclarativeContainer):
         Neo4jRepository, neo4j_conn=db_conn, logger=logger
     )
     
-    gsuite_adapter = providers.Singleton(GSuiteAdapterNew, client=google_oauth_client, logger=logger)
-
     integration_adapter = providers.Singleton(
         IntegrationAdapter, integration_service, logger
     )
-    llm_knowledge_base_adapter = providers.Singleton(
-        LLMKnowledgeBaseAdapter, logger=logger, llm_client=llm_client
-    )
-    
-    # ProcessDocumentService for LightRAG document processing
-    process_document_service = providers.Singleton(
-        ProcessDocumentService,
-        logger=logger,
-        repository=knowledge_base_repository,
-        llm_adapter=llm_knowledge_base_adapter,
-        neo4j_repository=neo4j_repository  # Add Neo4j repository for graph building
-    )
+
 
     # Analytics dependencies
     analytics_repository = providers.Singleton(
@@ -399,35 +280,13 @@ class Container(containers.DeclarativeContainer):
         logger=logger,
         repository=knowledge_base_repository,
         integration_adapter=integration_adapter,  # Using existing integration adapter
-        gsuite_adapter=gsuite_adapter,  # Using GSuite adapter
-        llm_adapter=llm_knowledge_base_adapter,  # Using Claude as LLM adapter
-        google_client_id=config.google_oauth.client_id,
-        google_client_secret=config.google_oauth.client_secret,
-        postgres_service=postgres_service,  # Add the missing postgres_service parameter
-        process_document_service=process_document_service  # Add ProcessDocumentService
-    )
-    knowledge_retrieval_service = providers.Singleton(
-        KnowledgeRetrievalService,
-        logger=logger,
-        repository=knowledge_base_repository,
-        llm_adapter=llm_knowledge_base_adapter,
-        neo4j_repository=neo4j_repository  # Add Neo4j repository for enhanced graph queries
-    )
 
-    knowledge_base_handler = providers.Singleton(KnowledgeBaseHandler, ingestion_service=knowledge_ingestion_service,
-                                                 retrieval_service=knowledge_retrieval_service)
+        postgres_service=postgres_service,  # Add the missing postgres_service parameter
+    )
 
     chat_repository = providers.Singleton(
         ChatRepository, db_conn=postgres_conn, logger=logger,
     )
-    knowledge_pal_agent = providers.Singleton(KnowledgePalAgent, tokens_service=tokens_service,
-                                              llm_model=LLMModel.GPT_4_1_MINI, logger=logger, llm_client=llm_client,
-                                              retrieval_service=knowledge_retrieval_service, redis_client=redis_client)
-    web_search_agent = providers.Singleton(WebSearchOrchestrator, config.openai.gemini_api_key)
-
-    chat_agent = providers.Singleton(ChatAgent, tokens_service=tokens_service, llm_model=LLMModel.GEMINI_2_0_FLASH,
-                                     logger=logger, knowledge_pal_agent=knowledge_pal_agent,
-                                     web_search_agent=web_search_agent, knowledge_retrieval_service=knowledge_retrieval_service)
 
     # Add AnalyticsRepositoryAdapter
     analytics_repository_adapter = providers.Singleton(
@@ -469,20 +328,14 @@ class Container(containers.DeclarativeContainer):
     chat_service = providers.Singleton(ChatService, chat_repository=chat_repository, logger=logger,
                                        redis_client=redis_client, llm_adapter=llm_adapter)
     chat_completion_service = providers.Singleton(ChatCompletionService, chat_service=chat_service,
-                                                  chat_agent=chat_agent, logger=logger,
-                                                  analytics_pal=analytics_pal, knowledge_pal=knowledge_pal_agent)
+                                              logger=logger,
+                                                  analytics_pal=analytics_pal)
 
     chat_handler = providers.Singleton(
         ChatHandler,
         chat_service=chat_service,
         logger=logger,
         completion_service=chat_completion_service,
-    )
-    automation_handler = providers.Singleton(
-        AutomationHandler,
-        meet_service=chat_service,
-        task_automation_service=chat_service,
-        logger=logger,
     )
 
     # Chart-related dependencies
@@ -582,45 +435,7 @@ class Container(containers.DeclarativeContainer):
         logger=logger
     )
     
-    #admin service and handler
-    admin_repository = providers.Singleton(AdminRepository, db_conn=db_conn, sql_db_conn=postgres_conn, logger=logger)
-    admin_service = providers.Singleton(
-        AdminService,
-        token_client=token_client,
-        logger=logger,
-        admin_repository=admin_repository,
-        tokens_service=tokens_service,
-    )
-    admin_handler = providers.Singleton(AdminHandler, admin_service=admin_service, logger=logger)
-    
-    # RFQ Bundling Service
-    rfq_service = providers.Singleton(
-        RFQService,
-        logger=logger
-    )
-    
-    rfq_repository = providers.Singleton(
-        RFQRepository,
-        db=db_conn,
-        logger=logger,
-        llm_client=llm_client
-    )
-    
-    # Add the criteria extraction agent
-    criteria_extraction_agent = providers.Singleton(
-        CriteriaExtractionAgent,
-        repository=rfq_repository,
-        llm_adapter=llm_adapter,
-        logger=logger
-    )
-    
-    rfq_handler = providers.Singleton(
-        RFQHandler,
-        rfq_service=rfq_service,
-        rfq_repository=rfq_repository,
-        criteria_agent=criteria_extraction_agent,
-        logger=logger
-    )
+
 
 
 def create_container(cfg: DictConfig) -> Container:

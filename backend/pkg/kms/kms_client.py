@@ -86,14 +86,3 @@ class KMSClient(IKMSClient):
             self.logger.error(error_msg)
             raise KMSError(error_msg)
 
-
-if __name__ == "__main__":
-    logger = Logger()
-
-    c = KMSClient(
-        os.getenv("KMS_KEY_ID"),
-        os.getenv("AWS_ACCESS_KEY_ID"),
-        os.getenv("AWS_SECRET_ACCESS_KEY"),
-        logger,
-    )
-    print(c.encrypt("dcnj"))

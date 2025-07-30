@@ -1,33 +1,13 @@
-from app.integrations.entity.entity import (
-    GoogleWatchChannelRequest,
-    GoogleWatchChannelResponse,
-)
+
 from app.integrations.service.integration_service import IIntegrationClient
-from integration_clients.g_suite.client import GSuiteClient
-from integration_clients.g_suite.types import GoogleOAuthToken
 from pkg.log.logger import Logger
 import asyncpg
 
 
 class IntegrationClient(IIntegrationClient):
-    def __init__(self, g_suite_client: GSuiteClient, logger: Logger):
+    def __init__(self,  logger: Logger):
         self.logger = logger
-        self.g_suite_client = g_suite_client
 
-    async def validate_google_credentials(self, integration_credentials: dict) -> (bool,str):
-        try:
-            token = GoogleOAuthToken(
-                access_token=integration_credentials.get("access_token"),
-                refresh_token=integration_credentials.get("refresh_token"),
-                scope=integration_credentials.get("scope"),
-                token_type=integration_credentials.get("token_type"),
-                expiry_date=integration_credentials.get("expiry_date"),
-            )
-            credentials = await self.g_suite_client.make_user_credentials(token)
-            return True, credentials.account
-        except Exception as e:
-            self.logger.error(f"Error validating Google credentials: {e!s}")
-            return False, ""
 
     async def validate_postgres_credentials(self, integration_credentials: dict) -> bool:
         try:

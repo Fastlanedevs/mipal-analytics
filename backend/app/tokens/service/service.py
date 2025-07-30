@@ -1,20 +1,37 @@
-from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Annotated
+from datetime import datetime
+from typing import List, Optional, Tuple
 from abc import ABC, abstractmethod
 
 from app.tokens.entities.entity import UserTokens, UserSubscription, TokenTransaction
 from app.tokens.entities.value_objects import SubscriptionPlan, TokenTransactionType, TokenAllocation
 from uuid import UUID
 from pkg.log.logger import Logger
-from fastapi import Request, Depends
-from app.tokens.service.stripe_service import StripeService
-from app.tokens.service.stripe_service import ITokensRepository
+
+
+class ITokensRepository(ABC):
+    @abstractmethod
+    async def get_user_tokens(self, user_id: str) -> Optional[UserTokens]:
+        pass
+
+    @abstractmethod
+    async def create_user_tokens(self, user_id: str, initial_credits: int = 0) -> UserTokens:
+        pass
+
+    @abstractmethod
+    async def update_user_tokens(self, user_id: str, current_credits: int, total_credits: int) -> Optional[UserTokens]:
+        pass
+
+    @abstractmethod
+    async def record_token_transaction(self, user_id: str, amount: int, transaction_type: TokenTransactionType, balance_after: int, description: Optional[str] = None) -> TokenTransaction:
+        pass
+
+
+
 
 class TokensService:
-    def __init__(self, tokens_repository: ITokensRepository, logger: Logger, stripe_service: StripeService ):
+    def __init__(self, tokens_repository: ITokensRepository, logger: Logger):
         self.repository = tokens_repository
         self.logger = logger
-        self.stripe_service = stripe_service
 
     async def get_or_create_user_tokens(self, user_id: str) -> UserTokens:
         user_tokens = await self.repository.get_user_tokens(user_id)
@@ -107,14 +124,6 @@ class TokensService:
 
         return updated_tokens
 
-    async def update_subscription(
-            self,
-            user_id: str,
-            subscription_plan: SubscriptionPlan,
-            stripe_customer_id: Optional[str] = None,
-            stripe_subscription_id: Optional[str] = None,
-            end_date: Optional[datetime] = None
-    ) -> UserSubscription:
         """
         Update user's subscription and refill tokens according to the new plan
         """

@@ -5,10 +5,7 @@ from typing import Any
 
 import bcrypt
 from fastapi import HTTPException
-from google.auth.transport import requests
-from google.oauth2 import id_token
 
-from app.auth.entity.entity import AzureAuth, GoogleAuthData
 from app.user.entities.aggregate import UserAggregate
 from app.user.service.user_service import UserService
 from pkg.auth_token_client.client import TokenClient, TokenPayload
@@ -16,7 +13,6 @@ from pkg.email_templates.signup_otp import get_email_subject, get_email_template
 from pkg.email_templates.password_reset_otp import get_email_subject as get_reset_email_subject, get_email_template as get_reset_email_template
 from pkg.log.logger import Logger
 from pkg.smtp_client.client import EmailClient
-from pkg.util.pydantic_to_dict import pydantic_to_dict
 from pkg.redis.client import RedisClient
 
 REDIS_OTP_STRING = "otp_"
@@ -29,13 +25,9 @@ class AuthService:
         smtp_client: EmailClient,
         token_client: TokenClient,
         redis_client: RedisClient,
-        google_oauth_client_id: str,
-        google_oauth_client_secret: str,
         logger: Logger,
     ):
         self.token_client: TokenClient = token_client
-        self.google_client_id = google_oauth_client_id
-        self.google_client_secret = google_oauth_client_secret
         self.redis_client = redis_client
         self.user_service: UserService = user_service
         self.smtp_client: EmailClient = smtp_client
@@ -173,126 +165,6 @@ class AuthService:
 
         return self._create_tokens(user.user.id, user.user.joined_org, email=email)
 
-    async def register_with_google(
-        self, google_auth_data: GoogleAuthData
-    ) -> dict[str, str]:
-        """Register/Login with Google"""
-        try:
-            # Create request object for token verification
-            request = requests.Request()
-
-            # Verify the ID token from google_auth_data
-            id_info: dict[str, Any] = id_token.verify_oauth2_token(
-                google_auth_data.account.id_token,  # Using id_token from GoogleAccount
-                request,
-                self.google_client_id,
-                clock_skew_in_seconds=60,
-            )
-
-            # Verify that the token is intended for your application
-            if id_info["aud"] != self.google_client_id:
-                raise ValueError("Invalid audience")
-
-            # Verify the issuer
-            if id_info["iss"] not in [
-                "accounts.google.com",
-                "https://accounts.google.com",
-            ]:
-                raise ValueError("Invalid issuer")
-
-            # Get email from the verified token
-            email: str = google_auth_data.user.email  # Using email from GoogleUser
-            if not google_auth_data.profile.email_verified:
-                raise ValueError("Email not verified by Google")
-
-            existing_user: (
-                UserAggregate | None
-            ) = await self.user_service.get_user_by_email(email)
-
-            if existing_user and existing_user.user:
-                if existing_user.user.auth_provider != "google":
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Email already registered with different provider",
-                    )
-                if existing_user.user.joined_org:
-                    return self._create_tokens(
-                        existing_user.user.id,
-                        existing_user.user.joined_org,
-                        existing_user.user.org.role,
-                        existing_user.user.org.organisation_id,
-                        email=email
-                    )
-
-                return self._create_tokens(
-                    existing_user.user.id, existing_user.user.joined_org, email=email
-                )
-
-            # Create new user with Google auth
-            user = await self.user_service.create_user(
-                email=email,
-                password_hash="",  # No password for Google auth
-                auth_provider="google",
-                name=google_auth_data.profile.name,
-                is_email_verified=True,  # Google has already verified the email,
-                auth_provider_detail=pydantic_to_dict(google_auth_data),
-            )
-            if not user or not user.user:
-                raise HTTPException(status_code=500, detail="Failed to create user")
-
-            return self._create_tokens(user.user.id, user.user.joined_org, email=email)
-
-        except ValueError as e:
-            self.logger.error(f"Google token verification failed: {e!s}")
-            raise HTTPException(status_code=400, detail=f"Invalid token: {e!s}")
-        except Exception as e:
-            self.logger.error(f"Google authentication error: {e!s}")
-            raise HTTPException(status_code=500, detail="Authentication failed")
-
-    async def register_with_azure(self, azure_auth_data: AzureAuth) -> dict[str, str]:
-        email = azure_auth_data.user.email
-        try:
-            existing_user: (
-                UserAggregate | None
-            ) = await self.user_service.get_user_by_email(email)
-
-            if existing_user and existing_user.user:
-                if existing_user.user.auth_provider != "azure":
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Email already registered with different provider: {existing_user.user.auth_provider}",
-                    )
-                if existing_user.user.joined_org:
-                    return self._create_tokens(
-                        existing_user.user.id,
-                        existing_user.user.joined_org,
-                        existing_user.user.org.role,
-                        existing_user.user.org.organisation_id,
-                        email=email
-                    )
-
-                return self._create_tokens(
-                    existing_user.user.id, existing_user.user.joined_org, email=email
-                )
-
-            # Create new user with Azure auth
-            user = await self.user_service.create_user(
-                email=email,
-                password_hash="",  # No password for Azure auth
-                auth_provider="azure",
-                name=azure_auth_data.profile.name,
-                is_email_verified=True,
-                auth_provider_detail=pydantic_to_dict(
-                    azure_auth_data
-                ),  # Azure has already verified the email
-            )
-            if not user or not user.user:
-                raise HTTPException(status_code=500, detail="Failed to create user")
-            return self._create_tokens(user.user.id, user.user.joined_org, email=email)
-
-        except Exception as e:
-            self.logger.error(f"Azure authentication error: {e!s}")
-            raise HTTPException(status_code=500, detail="Authentication failed")
 
     async def refresh_token(self, refresh_token: str) -> dict[str, str]:
         """Generate new access token using refresh token"""
