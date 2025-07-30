@@ -1,0 +1,19 @@
+version: "3"
+services:
+  app:
+    image: mipal-app
+    ports:
+      - "3000:3000"
+    environment:
+      GOOGLE_CLIENT_ID: 643746577665-7ner1pqoe9t1ad40t43gsrra8033k3h8.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: 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
+      NEXT_PUBLIC_APP_URL: https://app.mipal.ai
+      NEXT_PUBLIC_BACKEND_URL: https://api.mipal.ai
+      NEXTAUTH_SECRET: WgQ/cl+/qj8p11dlJOqAuNv7MpLTGPRLkJKfXEg1c6w=
+      NEXTAUTH_URL: https://app.mipal.ai
+      AZURE_AD_CLIENT_ID: 00abc223-11b0-43e4-9bf9-2320c521e0ea
+      AZURE_AD_CLIENT_SECRET: KQT8Q~CpCJxShEMt0K4MUfNVFEcdYYyW~b5vkckr
+      AZURE_AD_TENANT_ID: 525e627d-5ffc-47a1-b5ee-f54abcec0ea6
+      SLACK_CLIENT_ID: 3686209360626.8118561853284
+      SLACK_CLIENT_SECRET: 4769b22e65ef09914d27fd8e27130879
+      SLACK_SIGNING_SECRET: affd4241db1a579b5bc225af90fe2388

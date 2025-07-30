@@ -1,0 +1,49 @@
+name: Deploy to Amazon ECS (prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (e.g., 123 or latest)'
+        required: true
+        default: 'latest'
+
+env:
+  AWS_REGION: eu-north-1
+  ECR_REGISTRY: 669190811117.dkr.ecr.eu-north-1.amazonaws.com/mipal-ui-prod
+  ECS_CLUSTER: mipal-prod
+  ECS_SERVICE: mipal-ui-prod
+  TASK_DEFINITION: mipal-ui
+  CONTAINER_NAME: mipal-ui
+
+permissions:
+  contents: read
+
+jobs:
+  ecs-deploy:
+    name: ECS Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Render ECS task definition
+        id: render-task
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.ECR_REGISTRY }}:${{ github.event.inputs.image_tag }}
+
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-task.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
