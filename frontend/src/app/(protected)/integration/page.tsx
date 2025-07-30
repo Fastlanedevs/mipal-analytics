@@ -1,11 +1,6 @@
 "use client";
 import React from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import GoogleDriveIcon from "@/assets/svg/GoogleDriveIcon";
-import GmailIcon from "@/assets/svg/GmailIcon";
-import GoogleCalendarIcon from "@/assets/svg/GoogleCalendarIcon";
-import OutlookIcon from "@/assets/svg/OutlookIcon";
-import OneDriveIcon from "@/assets/svg/OneDriveIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -27,17 +22,14 @@ import {
   SYNC_STATUS,
 } from "@/store/services/syncApi";
 import LoadingScreen from "@/components/common/LoadingScreen";
-import SlackIcon from "@/assets/svg/SlackIcon";
 import { PageHeader } from "@/components/common/PageHeader";
-import Teams from "@/assets/svg/Teams";
-import MicrosoftIcon from "@/assets/svg/MicrosoftIcon";
-import { GoogleIcon } from "@/assets/svg/GoogleIcon";
+
 import {
   INTEGRATION_TYPES,
   IntegrationType,
   Integration,
 } from "@/store/services/integrationApi";
-import MicrosoftCalendar from "@/assets/MicrosoftCalendar";
+
 import PostgresIcon from "@/assets/svg/PostgresIcon";
 import { PostgresModal } from "@/components/modals/PostgresModal";
 import { useTour } from "@/contexts/TourContext";
