@@ -9,7 +9,6 @@ from app.knowledge_base.entity.entity import (
     RetrievalResult, DocumentTextChunk, DocumentEntity,
     EntityRelationship
 )
-from app.knowledge_base.entity.gsuite_entity import GoogleFileMetadata
 from pkg.util.file_content_extractor import ExtractedContent
 
 
@@ -161,30 +160,6 @@ class IIntegrationAdapter(ABC):
 
     @abstractmethod
     async def update_latest_checkpoint_integration(self, user_id: str, integration_id: UUID, checkpoint: str) -> bool:
-        pass
-
-
-class IGSuiteAdapter(ABC):
-    @abstractmethod
-    def make_oauth_token(self, credentials: dict):
-        pass
-
-    @abstractmethod
-    async def get_all_documents(self, oauth_token: Any,
-                                modified_after: Optional[datetime]) -> list[GoogleFileMetadata]:
-        pass
-
-    @abstractmethod
-    async def extract_document_content(self, oauth_token: Any, metadata: GoogleFileMetadata) -> ExtractedContent:
-        pass
-
-    @abstractmethod
-    async def get_checkpoint_drive_token(self, oauth_token: Any) -> str:
-        pass
-
-    @abstractmethod
-    async def get_changed_documents(self, oauth_token: Any,
-                                    start_page_token: str) -> Tuple[List[GoogleFileMetadata], List[str], str]:
         pass
 
 
