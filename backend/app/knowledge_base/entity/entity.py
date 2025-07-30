@@ -29,14 +29,6 @@ class DocumentStatus(str, Enum):
 class IntegrationType(str, Enum):
     """Enum representing different integration services"""
 
-    GOOGLE_CALENDAR = "GOOGLE_CALENDAR"
-    GOOGLE_DRIVE = "GOOGLE_DRIVE"
-    GOOGLE_GMAIL = "GOOGLE_GMAIL"
-    MICROSOFT_TEAMS = "MICROSOFT_TEAMS"
-    MICROSOFT_ONEDRIVE = "MICROSOFT_ONEDRIVE"
-    MICROSOFT_OUTLOOK = "MICROSOFT_OUTLOOK"
-    MICROSOFT_CALENDER = "MICROSOFT_CALENDER"
-    SLACK_CHAT = "SLACK_CHAT"
     POSTGRESQL = "POSTGRESQL"
 
     @classmethod

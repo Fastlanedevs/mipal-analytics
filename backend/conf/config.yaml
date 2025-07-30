@@ -50,11 +50,6 @@ redis:
   port: ${oc.env:REDIS_PORT}
   password: ${oc.env:REDIS_PASSWORD}
 
-slack:
-  client_id: ${oc.env:SLACK_CLIENT_ID}
-  client_secret: ${oc.env:SLACK_CLIENT_SECRET}
-  signing_secret: ${oc.env:SLACK_SIGNING_SECRET}
-
 
 service_url:
   code_execution_url: ${oc.env:CODE_EXECUTION_SERVICE_URL}

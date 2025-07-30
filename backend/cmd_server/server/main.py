@@ -107,7 +107,6 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router)
 
     app.include_router(tokens_router)
-    app.include_router(admin_router)
 
     # Wire the container to both route modules
     container.wire(
@@ -118,7 +117,6 @@ def create_app() -> FastAPI:
             chat_routes,
             analytics_routes,
             tokens_routes,
-            admin_routes,
         ]
     )
     db_initializer = container.db_initializer()
@@ -133,16 +131,6 @@ def create_app() -> FastAPI:
     def health_check() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/callback", response_class=responses.HTMLResponse)
-    async def callback(request: Request):
-        code = request.query_params.get("code")
-        if code:
-            print(f"Received Slack OAuth code: {code}")
-            return f"<html><body><h1>Received code: {code}</h1></body></html>"
-        else:
-            return "<html><body><h1>No code received.</h1></body></html>"
-
-    return app
 
 
 app = create_app()

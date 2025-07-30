@@ -4,7 +4,6 @@ from typing import Any, List, Dict, Optional, Tuple, Union
 
 from openai import AsyncOpenAI
 from openai.types.shared_params.response_format_json_object import ResponseFormatJSONObject
-from pkg.llm_provider.claude_aws.claude_client import BedrockAnthropicClient
 from pkg.log.logger import Logger
 from google import genai
 from app.tokens.service.service import TokensService
@@ -91,9 +90,6 @@ class LLMClient:
         self.groq_client: AsyncOpenAI = AsyncOpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
         self.logger: Logger = logger
         self.tokens_service: TokensService = tokens_service
-        if bedrock_anthropic_client:
-            self.claude_client: BedrockAnthropicClient = bedrock_anthropic_client()
-
     def num_tokens_from_string(self, string: str, model: str = "cl100k_base") -> int:
 
         try:
@@ -213,21 +209,6 @@ class LLMClient:
                 except Exception as e:
                     self.logger.error(f"Error getting response from Gemini: {e!s}")
                     raise e
-            elif model == LLMModel.CLAUDE_3_7_SONNET:
-                response = await self.claude_client.messages.create(
-                    model=bedrock_anthropic_model_map.get(model.value),
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                response_text = response.content[0].text
-
-                # Update token consumption if user_id is provided
-                if user_id and hasattr(response, 'usage'):
-                    total_tokens = response.usage.input_tokens + response.usage.output_tokens
-                    await self.tokens_service.consume_tokens(user_id, total_tokens)
-
-                return response_text
             else:
                 # model should be mapped and extracted from openai model
                 model_value = openai_model_map.get(model.value)
@@ -303,24 +284,6 @@ class LLMClient:
                             yield content
                     if hasattr(chunk, "usage") and hasattr(chunk.usage, "total_tokens"):
                         token_count += chunk.usage.total_tokens
-            elif model == LLMModel.CLAUDE_3_7_SONNET:
-                async with await self.claude_client.messages.create(
-                        max_tokens=64000,
-                        model=bedrock_anthropic_model_map.get(model.value),
-                        messages=messages,
-                        temperature=temperature,
-                        stream=True,
-                        system=system_message,
-                ) as stream:
-                    async for event in stream:
-                        if event.type == "content_block_delta":
-                            content = event.delta.text
-                            if content:
-                                yield content
-                        elif event.type == "message_start":
-                            token_count += event.message.usage.input_tokens
-                        elif event.type == "message_delta":
-                            token_count += event.usage.output_tokens
 
             else:
                 messages.insert(0, system_msg_dict)
@@ -414,21 +377,6 @@ class LLMClient:
                 except Exception as e:
                     self.logger.error(f"Error getting response from Gemini: {e!s}")
                     raise e
-            elif model == LLMModel.CLAUDE_3_7_SONNET:
-                response = await self.claude_client.messages.create(
-                    model=bedrock_anthropic_model_map.get(model.value),
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                response_text = response.content[0].text
-
-                # Update token consumption if user_id is provided
-                if user_id and hasattr(response, 'usage'):
-                    total_tokens = response.usage.input_tokens + response.usage.output_tokens
-                    await self.tokens_service.consume_tokens(user_id, total_tokens)
-
-                return response_text
             else:
                 # model should be mapped and extracted from openai model
                 model_value = openai_model_map.get(model.value)
@@ -537,7 +485,6 @@ class LLMClient:
 
                 return response_text
 
-            elif model == LLMModel.CLAUDE_3_7_SONNET:
                 model_value = bedrock_anthropic_model_map.get(model.value)
                 response = await self.claude_client.messages.create(
                     model=model_value,

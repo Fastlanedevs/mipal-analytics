@@ -64,11 +64,6 @@ class RedisConfig:
     password: str
 
 
-@dataclass
-class Slack:
-    client_id: str
-    client_secret: str
-    signing_secret: str
 
 
 @dataclass
@@ -95,7 +90,6 @@ class AppConfig:
     openai: OpenAIConfig
     queue: QueueConfig
     redis: RedisConfig
-    slack: Slack
     aws: AWSConfig
     postgres: PostgresConfig
     service_url: ServiceURL

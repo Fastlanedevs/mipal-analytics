@@ -117,29 +117,8 @@ class IntegrationService:
         print( "user integration id ", user_integration.integration_id)
 
         # Validate credentials based on provider
-        if integration_metadata.integration_provider == IntegrationProvider.GOOGLE:
-            valid, account = await self.integrations_client.validate_google_credentials(user_integration.credential)
-
-            if not valid:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid Google credentials",
-                )
-            user_integration.integration_name = account
-            integration = await self.integration_repository.create_user_integration(
-                user_id, user_integration
-            )
-            return integration
-        elif (
-                integration_metadata.integration_provider == IntegrationProvider.MICROSOFT
-                or integration_metadata.integration_provider == IntegrationProvider.SLACK
-        ):
-            integration = await self.integration_repository.create_user_integration(
-                user_id, user_integration
-            )
-            return integration
             # POSTGRESQL
-        elif integration_metadata.integration_provider == IntegrationProvider.POSTGRESQL:
+        if integration_metadata.integration_provider == IntegrationProvider.POSTGRESQL:
             if not await self.integrations_client.validate_postgres_credentials(
                     user_integration.credential
             ):
