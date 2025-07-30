@@ -51,7 +51,15 @@ cd frontend
 
 ## Contributing
 
-Please read the contributing guidelines in each respective folder:
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+
+- Code of conduct
+- Development setup
+- Pull request process
+- Coding standards
+- Testing guidelines
+
+For module-specific information:
 - [Backend Contributing](backend/README.md)
 - Frontend Contributing (to be added)
 
