@@ -2,59 +2,31 @@ import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 from app.knowledge_base.service.service import (IKnowledgeIngestionService, ILLMAdapter, IKnowledgeBaseRepository,
-                                                IGSuiteAdapter, IIntegrationAdapter)
-from app.knowledge_base.service.process_document import ProcessDocumentService
+                                                 IIntegrationAdapter)
+
 
 from app.analytics.service.postgres_service import PostgresService, CreatePostgresDatabaseRequestDTO
 from pkg.log.logger import Logger
 from app.knowledge_base.entity.entity import ( UserDocument, UserIntegration, SyncIntegration,
                                               IntegrationType, ProcessingStatus, DocumentStatus)
-from app.knowledge_base.entity.gsuite_entity import GoogleFileMetadata
 
 from app.integrations.entity.value_object import SyncStatus
 
 
 class KnowledgeIngestionService(IKnowledgeIngestionService):
-    """Enhanced knowledge ingestion service with LightRAG technique support"""
+    """Enhanced knowledge ingestion service with  technique support"""
 
-    # Document type constants
-    DOCUMENT_TYPES = [
-        "application/vnd.google-apps.document",
-        "application/vnd.google-apps.presentation",
-        "application/pdf",
-        "text/plain",
-        "text/html",
-        "text/markdown",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    ]
-    
-    SPREADSHEET_TYPES = [
-        "application/vnd.google-apps.spreadsheet",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "text/csv"
-    ]
-    
-    IMAGE_TYPES = ["image/png", "image/jpeg"]
-
-    MAX_TOKENS = 7000
-    OVERLAP_TOKENS = 100
 
     def __init__(self, logger: Logger, repository: IKnowledgeBaseRepository, integration_adapter: IIntegrationAdapter,
-                 gsuite_adapter: IGSuiteAdapter, llm_adapter: ILLMAdapter, google_client_id: str,
-                 google_client_secret: str, postgres_service: PostgresService, process_document_service: ProcessDocumentService):
+                 llm_adapter: ILLMAdapter, postgres_service: PostgresService, process_document_service: ProcessDocumentService):
 
         self.IMAGE_SIZE_LIMIT = 5 * 1024 * 1024  # 5MB limit for images
 
         self.logger: Logger = logger
         self.repository: IKnowledgeBaseRepository = repository
         self.integration_adapter: IIntegrationAdapter = integration_adapter
-        self.gsuite_adapter: IGSuiteAdapter = gsuite_adapter
         self.llm_adapter: ILLMAdapter = llm_adapter
-        self.google_client_id: str = google_client_id
-        self.google_client_secret: str = google_client_secret
         self.postgres_service: PostgresService = postgres_service
-        self.process_document_service: ProcessDocumentService = process_document_service
         self.logger.info("Initializing Knowledge Ingestion Service")
 
 
@@ -96,9 +68,7 @@ class KnowledgeIngestionService(IKnowledgeIngestionService):
                 self.logger.info("Integration sync already in progress, continuing",
                                  extra={"user_id": user_id, "sync_id": sync_id})
             # Process integration based on its type
-            if user_integration.integration_type == IntegrationType.GOOGLE_DRIVE:
-                await self.process_gsuite_integration(user_id, sync_id, user_integration)
-            elif user_integration.integration_type == IntegrationType.POSTGRESQL:
+            if user_integration.integration_type == IntegrationType.POSTGRESQL:
                 await self.process_postgres_integration(user_id, sync_id, user_integration)
             else:
                 self.logger.info(f"{user_integration.integration_type} integration sync not implemented yet")

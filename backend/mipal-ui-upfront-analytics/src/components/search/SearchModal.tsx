@@ -29,13 +29,7 @@ import {
   useGetFullSearchResultsQuery,
 } from "@/store/services/filesApi";
 import { SearchResponse } from "@/app/(protected)/chat/types/chat";
-import {
-  GoogleDocsIcon,
-  GoogleSheetsIcon,
-  GoogleSlidesIcon,
-  GoogleDrawingsIcon,
-  GooglePDFIcon,
-} from "@/components/icons/GoogleDriveIcons";
+
 import { useTranslations } from "next-intl";
 interface SearchModalProps {
   isSearchOpen: boolean;
@@ -127,27 +121,6 @@ export const SearchModal = ({
     }
   };
 
-  const getFileIcon = (title: string, address?: string) => {
-    // Check if it's a Google Drive URL
-    if (address?.includes("docs.google.com")) {
-      if (address.includes("/document/d/")) {
-        return <GoogleDocsIcon className="w-4 h-4" />;
-      } else if (address.includes("/spreadsheets/d/")) {
-        return <GoogleSheetsIcon className="w-4 h-4" />;
-      } else if (address.includes("/presentation/d/")) {
-        return <GoogleSlidesIcon className="w-4 h-4" />;
-      } else if (address.includes("/drawing/d/")) {
-        return <GoogleDrawingsIcon className="w-4 h-4" />;
-      } else if (address.includes("/script/d/")) {
-        return <FileCode className="w-4 h-4 text-yellow-500" />;
-      } else if (address.includes("/video/d/")) {
-        return <FileVideo className="w-4 h-4 text-red-500" />;
-      } else if (address.includes("/audio/d/")) {
-        return <FileAudio className="w-4 h-4 text-pink-500" />;
-      } else if (address.includes("/archive/d/")) {
-        return <FileArchive className="w-4 h-4 text-gray-500" />;
-      }
-    }
 
     // Handle other file types
     const extension = title.split(".").pop()?.toLowerCase();

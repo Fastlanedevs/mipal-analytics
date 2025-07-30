@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MobileLogo, DesktopLogo } from "@/assets/svg/MILogo";
 import { useRouter, useSearchParams } from "next/navigation";
-import { GoogleIcon } from "@/assets/svg/GoogleIcon";
 import LoadingScreen from "@/components/common/LoadingScreen";
 import {
   Eye,
@@ -20,7 +19,6 @@ import {
   MessageSquare,
   Lock,
 } from "lucide-react";
-import MicrosoftIcon from "@/assets/svg/MicrosoftIcon";
 import {
   Accordion,
   AccordionContent,
@@ -102,53 +100,7 @@ export default function AuthPage() {
     });
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      setIsTransitioning(true);
 
-      const baseUrl = process.env.NEXTAUTH_URL;
-
-      const finalCallbackUrl = `${baseUrl}/`;
-
-      await signIn("google", {
-        redirect: true,
-        callbackUrl: finalCallbackUrl,
-        authorizationParams: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-        },
-      });
-    } catch (error) {
-      console.error("Google Sign In Error:", error);
-      setError(t("anUnexpectedErrorOccurredPleaseTryAgain"));
-      setIsTransitioning(false);
-      setIsLoading(false);
-    }
-  };
-
-  const handleMicrosoftSignIn = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      setIsTransitioning(true);
-
-      const baseUrl = process.env.NEXTAUTH_URL;
-
-      const finalCallbackUrl = `${baseUrl}/`;
-
-      await signIn("azure-ad", {
-        redirect: true,
-        callbackUrl: finalCallbackUrl,
-      });
-    } catch (error) {
-      console.error("Microsoft Sign In Error:", error);
-      setError(t("anUnexpectedErrorOccurredPleaseTryAgain"));
-      setIsTransitioning(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

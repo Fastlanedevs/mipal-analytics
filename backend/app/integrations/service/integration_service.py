@@ -74,9 +74,6 @@ class IIntegrationRepository(ABC):
 
 
 class IIntegrationClient(ABC):
-    @abstractmethod
-    async def validate_google_credentials(self, integration_credentials: dict) -> (bool,str):
-        pass
 
     @abstractmethod
     async def validate_postgres_credentials(self, integration_credentials: dict) -> bool:
@@ -157,16 +154,8 @@ class IntegrationService:
                     detail="Integration not found",
                 )
 
-            # Validate credentials based on provider
-            if current_integration.integration_metadata.integration_provider == IntegrationProvider.GOOGLE:
-                # Assume validation happens if credentials are provided in the update
-                valid, account = await self.integrations_client.validate_google_credentials(credential)
-                if not valid:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Invalid Google credentials",
-                    )
-            elif current_integration.integration_metadata.integration_provider == IntegrationProvider.POSTGRESQL:
+            # Validate credentials based on provider )
+            if current_integration.integration_metadata.integration_provider == IntegrationProvider.POSTGRESQL:
                 if credential and not await self.integrations_client.validate_postgres_credentials(credential):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,

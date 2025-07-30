@@ -50,28 +50,3 @@ class SyncIntegration(BaseModel):
 class SyncIntegrationEvent(BaseModel):
     user_id: str
     sync_id: str
-
-
-class GoogleWatchChannelRequest(BaseModel):
-    channel_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    webhook_url: str
-    token: str = Field(default_factory=lambda: uuid.uuid4().hex)
-
-
-class GoogleWatchChannelResponse(BaseModel):
-    channel_id: str
-    expiration: int
-    resource_id: str
-    resource_uri: str
-    token: str
-    webhook_url: str
-
-
-class WatchChannel(BaseModel):
-    integration_id: UUID
-    user_id: str
-    integration_provider: IntegrationProvider
-    integration_type: IntegrationType | None = None
-    channel_detail: dict = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
