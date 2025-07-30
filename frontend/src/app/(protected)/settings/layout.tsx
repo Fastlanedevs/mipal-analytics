@@ -1,10 +1,8 @@
 "use client";
-import ManageSubscription from "@/components/pricing/ManageSubscription";
+
 import { Button } from "@/components/ui/button";
 import {
   User,
-  BriefcaseBusiness,
-  CreditCard,
   Wallet,
   LogOut,
 } from "lucide-react";
@@ -59,7 +57,7 @@ export default function SettingsLayout({
                 {t("navigation.plans")}
               </Button>
             )}
-            <ManageSubscription />
+       
             {!userProfile?.organisation?.id && (
               <Button
                 variant="ghost"

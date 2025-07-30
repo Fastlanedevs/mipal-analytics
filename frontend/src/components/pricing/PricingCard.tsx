@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Button } from "../ui/button";
-import { useCreateCheckoutSessionMutation } from "@/store/services/stripeApi";
+// Stripe functionality removed
 import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 import {
@@ -24,7 +24,7 @@ import {
   stripeToSubscriptionMapping,
 } from "@/lib/utils/pricing";
 import { cn } from "@/lib/utils/cn";
-import useManageSubscription from "@/hooks/useManageSubscription";
+// Subscription management removed
 import { LEMCAL_URL } from "@/constants";
 import { useTranslations } from "next-intl";
 import TrialPeriod from "./TrialPeriod";
@@ -58,9 +58,9 @@ const PricingCard: React.FC<{
   const { data: session } = useSession();
   const { data: subscription, isLoading: isLoadingSubscription } =
     useGetSubscriptionQuery();
-  const [createCheckoutSession, { isLoading }] =
-    useCreateCheckoutSessionMutation();
-  const { isLoading: isLoadingManageSubscription } = useManageSubscription();
+  // Stripe functionality removed
+  const isLoading = false;
+  const isLoadingManageSubscription = false;
   const { data: userProfile } = useGetUserProfileQuery({});
   const [animatePrice, setAnimatePrice] = useState(false);
 
@@ -84,33 +84,12 @@ const PricingCard: React.FC<{
     lookupKey,
     subscription_data,
   }: SubscriptionParams) => {
-    const accessToken = session?.accessToken ?? session?.user?.access_token;
-
-    if (!lookupKey || !accessToken) return;
-
-    if (lookupKey === PricingPlanLookupKeys.ENTERPRISE_PLAN) {
-      window.open(LEMCAL_URL, "_blank");
-      return;
-    }
-
-    if (lookupKey === PricingPlanLookupKeys.FREE_PLAN) {
-      toast({
-        title: "Free plan is not available for purchase",
-      });
-      return;
-    }
-
-    const { data } = await createCheckoutSession({
-      lookup_key: lookupKey,
-      success_url: `${window.location.origin}/settings/plans`,
-      cancel_url: `${window.location.origin}/settings/plans`,
-      email: userProfile?.email,
-      ...(subscription_data && { subscription_data }),
+    // Stripe functionality removed - show disabled message
+    toast({
+      title: "Upgrade functionality is currently disabled",
+      description: "Please contact support for assistance.",
     });
-
-    if (data?.url) {
-      window.open(data.url);
-    }
+    return;
   };
 
   // Define feature sections per tier
@@ -209,31 +188,9 @@ const PricingCard: React.FC<{
     everythingInText = t("enterprisePlanEverythingInPro");
   }
 
-  // Helper function to get button text
+  // Helper function to get button text - always disabled
   const getButtonText = (): string => {
-    if (isLoading || isLoadingManageSubscription) {
-      return t("loading");
-    }
-
-    if (!session) {
-      return t("pleaseSignIn");
-    }
-
-    if (isCurrentPlan) {
-      return t("currentPlan");
-    }
-
-    switch (plan.tier) {
-      case "enterprise":
-        return t("letsTalk");
-      case "free":
-        return t("downgrade");
-      case "plus":
-      case "pro":
-        return t("upgrade");
-      default:
-        return t("upgrade");
-    }
+    return "";
   };
 
   if (plan.hidePlan) {
@@ -287,29 +244,8 @@ const PricingCard: React.FC<{
               </div>
 
               {/* Action buttons */}
-              <div className="w-full flex flex-col gap-4">
-                <Button
-                  disabled={
-                    isLoading ||
-                    !session ||
-                    isCurrentPlan ||
-                    isLoadingManageSubscription
-                  }
-                  onClick={() => {
-                    handleSubscription({
-                      lookupKey:
-                        planPriceDuration === "month"
-                          ? plan.lookupKey
-                          : plan.lookupKeyYearly,
-                      tier: plan.tier,
-                    });
-                  }}
-                  variant="outline"
-                  size={"lg"}
-                  className={cn("w-full rounded-xl cursor-pointer")}
-                >
-                  {getButtonText()}
-                </Button>
+            
+              
                 {/* <TrialPeriod
                   enable={
                     (plan.alias === SubscriptionPlan.PRO ||
@@ -336,7 +272,7 @@ const PricingCard: React.FC<{
                   }
                   loading={isLoading || isLoadingManageSubscription}
                 /> */}
-              </div>
+            
             </div>
 
             {/* Divider */}

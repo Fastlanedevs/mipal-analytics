@@ -715,13 +715,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         </p>
         <Button
           variant="default"
-          className="w-full max-w-[200px] gap-2"
+          className="w-full max-w-[200px] gap-2 opacity-50 cursor-not-allowed"
+          disabled={true}
           onClick={() => {
-            router.push("/settings/plans");
+            // Upgrade functionality disabled
+            console.log("Upgrade functionality is currently disabled");
           }}
         >
           <ArrowRight className="w-4 h-4" />
-          {t2("upgrade")}
+          Currently Unavailable
         </Button>
       </div>
     );
@@ -761,7 +763,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 metaContent={message.metaContent}
                 message={message}
                 showMetaContent={
-                  isAnalytics || chatModel === PalEnum.KNOWLEDGE_PAL
+                  isAnalytics 
                 }
               />
             ) : (
@@ -774,7 +776,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                       message={message}
                       showCompleted={true}
                       showMetaContent={
-                        isAnalytics || chatModel === PalEnum.KNOWLEDGE_PAL
+                        isAnalytics 
                       }
                     />
                   )}

@@ -156,18 +156,8 @@ export default function RenderCreditsInfo({
         </div>
       )}
 
-      {/* Add a button to upgrade */}
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={() => {
-          setPopoverOpen(false);
-          setIsOpen(false);
-          router.push("/settings/plans");
-        }}
-      >
-        {t("upgrade")}
-      </Button>
+      {/* Upgrade button disabled */}
+    
     </div>
   );
 }
