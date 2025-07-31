@@ -4,7 +4,7 @@ This repository contains both the backend and frontend components of the Mipal A
 
 ## 🖼️ UI Screenshots
 
-### Dashboard Overview
+### Chat Overview
 
 ![Mipal Analytics Dashboard](frontend/public/ui1.png)
 
@@ -12,7 +12,7 @@ This repository contains both the backend and frontend components of the Mipal A
 
 ![Analytics Interface](frontend/public/ui2.png)
 
-### User Interface
+### Dashboard Graph Interface
 
 ![User Interface](frontend/public/ui3.png)
 
