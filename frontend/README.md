@@ -150,12 +150,6 @@ Currently supports:
 
 - **PostgreSQL** - Primary database integration
 
-### PostgreSQL Configuration
-
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/database_name
-```
-
 ## 🐳 Docker Support
 
 ### Development with Docker
