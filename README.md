@@ -2,6 +2,20 @@
 
 This repository contains both the backend and frontend components of the Mipal Analytics platform.
 
+## 🖼️ UI Screenshots
+
+### Dashboard Overview
+
+![Mipal Analytics Dashboard](frontend/public/ui1.png)
+
+### Analytics Interface
+
+![Analytics Interface](frontend/public/ui2.png)
+
+### User Interface
+
+![User Interface](frontend/public/ui3.png)
+
 ## Project Structure
 
 ```
