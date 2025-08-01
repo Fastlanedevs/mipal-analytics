@@ -2,6 +2,8 @@
 
 An advanced, open-source analytics platform that combines conversational AI with powerful data visualization and analysis capabilities. Built with FastAPI backend and Next.js frontend for a modern, scalable architecture.
 
+🌟 **Try MIPAL Analytics**: [app.mipal.ai](https://app.mipal.ai) | 📖 **Learn More**: [www.mipal.ai](https://www.mipal.ai)
+
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Next.js](https://img.shields.io/badge/next.js-14.2+-black.svg)
@@ -83,6 +85,8 @@ mipal-analytics/
 - **Code Quality**: Ruff (Python), ESLint + Prettier (TypeScript)
 
 ## 🚀 Quick Start
+
+> **💡 Want to try MIPAL immediately?** Skip the setup and use our hosted service: **[app.mipal.ai](https://app.mipal.ai)**
 
 ### Prerequisites
 - Python 3.11+
@@ -178,6 +182,28 @@ npm run dev
 ```
 
 The frontend will be available at `http://localhost:3000`
+
+## ☁️ Hosted Service
+
+**Don't want to set up locally?** Try our fully managed hosted service:
+
+### 🌟 **[MIPAL Analytics Cloud](https://app.mipal.ai)**
+- **No setup required** - Start analyzing data immediately
+- **Always up-to-date** - Latest features and security updates
+- **Managed infrastructure** - We handle scaling, backups, and maintenance
+- **Enterprise support** - Professional support and SLA options
+
+### 📖 **[Learn More at www.mipal.ai](https://www.mipal.ai)**
+- Product overview and use cases
+- Pricing and enterprise options
+- Documentation and tutorials
+- Customer success stories
+
+**Perfect for:**
+- 🚀 **Quick evaluation** - Try MIPAL without technical setup
+- 👥 **Teams** - Collaborate without infrastructure management  
+- 🏢 **Enterprises** - Production-ready with support and SLA
+- 📊 **Data analysts** - Focus on insights, not infrastructure
 
 ## 📋 Environment Configuration
 
@@ -464,13 +490,16 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - **Deployment Guide**: [docs/deployment.md](docs/deployment.md)
 
 ### 🐛 Issues & Support
-- Report bugs: [GitHub Issues](https://github.com/your-org/mipal-analytics/issues)
-- Feature requests: [GitHub Discussions](https://github.com/your-org/mipal-analytics/discussions)
-- Security issues: See [SECURITY.md](SECURITY.md)
+- **Hosted Service**: [app.mipal.ai](https://app.mipal.ai) - Try our hosted version
+- **Website**: [www.mipal.ai](https://www.mipal.ai) - Learn more about MIPAL
+- **Report bugs**: [GitHub Issues](https://github.com/your-org/mipal-analytics/issues)
+- **Feature requests**: [GitHub Discussions](https://github.com/your-org/mipal-analytics/discussions)
+- **Security issues**: See [SECURITY.md](SECURITY.md)
 
 ### 💬 Community
-- Discord: [Join our community](https://discord.gg/mipal)
-- Twitter: [@MipalAnalytics](https://twitter.com/MipalAnalytics)
+- **Website**: [www.mipal.ai](https://www.mipal.ai)
+- **Discord**: [Join our community](https://discord.gg/mipal)
+- **Twitter**: [@MipalAnalytics](https://twitter.com/MipalAnalytics)
 
 ## 🗺️ Roadmap
 
@@ -505,5 +534,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ---
 
 **Made with ❤️ by the MIPAL Team**
+
+🌟 **[Try MIPAL Analytics Live](https://app.mipal.ai)** | 📖 **[Learn More](https://www.mipal.ai)**
 
 *Empowering data-driven decision making through conversational AI*

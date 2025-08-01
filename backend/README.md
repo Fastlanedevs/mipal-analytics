@@ -2,6 +2,8 @@
 
 A modern analytics platform built with FastAPI, providing conversational AI-powered data analysis and visualization capabilities.
 
+🌟 **Try the hosted version**: [app.mipal.ai](https://app.mipal.ai) | 📖 **Learn More**: [www.mipal.ai](https://www.mipal.ai)
+
 ## 🚀 Features
 
 - **Conversational Analytics**: Chat-based interface for data analysis using LLM integration
@@ -215,16 +217,18 @@ The platform supports various integrations:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details.
 
 ## 🆘 Support
 
 If you encounter any issues:
 
-1. Check the [Issues](https://github.com/your-org/mipal-analytics/issues) page
-2. Review the API documentation at `/docs`
-3. Ensure all environment variables are correctly set
-4. Verify database connections are working
+1. **Try our hosted service**: [app.mipal.ai](https://app.mipal.ai)
+2. **Visit our website**: [www.mipal.ai](https://www.mipal.ai)
+3. Check the [Issues](https://github.com/your-org/mipal-analytics/issues) page
+4. Review the API documentation at `/docs`
+5. Ensure all environment variables are correctly set
+6. Verify database connections are working
 
 ## 🗺️ Roadmap
 
@@ -241,8 +245,14 @@ Current version: 0.1.0
 
 ## 📞 Contact
 
-For questions and support, please open an issue in the GitHub repository.
+- **Website**: [www.mipal.ai](https://www.mipal.ai)
+- **Hosted Service**: [app.mipal.ai](https://app.mipal.ai)
+- **GitHub Issues**: For questions and support
 
 ---
+
+**Made with ❤️ by the MIPAL Team**
+
+🌟 **[Try MIPAL Analytics Live](https://app.mipal.ai)** | 📖 **[Learn More](https://www.mipal.ai)**
 
 **Note**: This project currently requires AWS services for full functionality. Alternative implementations for cloud services are planned for future releases to make the platform fully self-hostable.

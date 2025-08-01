@@ -180,3 +180,4 @@ jspm_packages/
 /app/code_execution/lambda_deployment/*
 !/app/code_execution/lambda_deployment/requirements.txt
 !/app/code_execution/lambda_deployment/code_execution/
+/backend/CLAUDE.md

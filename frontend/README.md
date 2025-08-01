@@ -2,6 +2,8 @@
 
 A modern, responsive frontend built with Next.js 14 and TypeScript, providing an intuitive interface for conversational analytics and data visualization.
 
+🌟 **Try the hosted version**: [app.mipal.ai](https://app.mipal.ai) | 📖 **Learn More**: [www.mipal.ai](https://www.mipal.ai)
+
 ## 🚀 Features
 
 ### 🎨 Modern UI/UX
@@ -349,6 +351,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](../LIC
 ---
 
 **Built with ❤️ using Next.js and TypeScript**
+
+🌟 **[Try MIPAL Analytics Live](https://app.mipal.ai)** | 📖 **[Learn More](https://www.mipal.ai)**
 
 *For backend documentation, see [../backend/README.md](../backend/README.md)*
 *For full project overview, see [../README.md](../README.md)*
