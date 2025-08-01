@@ -1,142 +1,248 @@
-### How to Use
+# MIPAL Analytics Backend
 
-1. Install dependencies ```make install```
-2. Create and add appropriate values into .env.src.local file
-3. Main scripts are place in cmd folder
-4. Run ```make run``` command to run "mipal-backend-api" server (default port 8000)
+A modern analytics platform built with FastAPI, providing conversational AI-powered data analysis and visualization capabilities.
 
-### Requirements
+## 🚀 Features
+
+- **Conversational Analytics**: Chat-based interface for data analysis using LLM integration
+- **Multi-Database Support**: Connect to PostgreSQL, upload Excel/CSV files, or use existing databases
+- **Real-time Chat**: WebSocket-based real-time communication
+- **Chart Generation**: AI-powered chart creation and visualization
+- **User Management**: Complete authentication system with JWT tokens
+- **Organization Support**: Multi-tenant architecture with organization management
+- **File Processing**: Upload and analyze Excel/CSV files
+- **Integration Framework**: Extensible integration system for external data sources
+
+## 🏗️ Architecture
+
+This project follows clean architecture principles with Domain-Driven Design (DDD):
+
+```
+├── app/                    # Application layer
+│   ├── auth/              # Authentication domain
+│   ├── analytics/         # Analytics and data processing
+│   ├── chat/              # Conversational interface
+│   ├── user/              # User management
+│   ├── integrations/      # External integrations
+│   └── pal/               # Program-Aided Language model workflows
+├── cmd_server/            # Application entry points
+├── pkg/                   # Shared packages and utilities
+└── conf/                  # Configuration files
+```
+
+## 📋 Prerequisites
+
 - Python 3.11+
+- PostgreSQL database
+- Redis server
+- Neo4j database
+- AWS account (for S3, SES, KMS services)
 
-### Docs
+## 🔧 Installation
 
-API docs will be available at /docs
-Prod API docs: https://api.mipal.ai/docs
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd mipal-analytics/backend
+   ```
 
-Technical documentation:
-- [Database Context Handling in Conversations](app/chat/docs/database_context_handling.md) - How the system handles database context in analytics conversations
+2. **Install dependencies using uv**
+   ```bash
+   make install
+   ```
+   
+   Or manually:
+   ```bash
+   uv pip install -r pyproject.toml --all-extras
+   ```
 
-### Example Output
-![Sales Metrics Whiteboard.png](docs%2FSales%20Metrics%20Whiteboard.png)
+3. **Set up environment variables**
+   
+   Create a `.env` file in the backend directory with the following variables:
+   
+   ```bash
+   # API Keys - LLM Providers
+   OPENAI_API_KEY=your_openai_api_key
+   DEEPSEEK_API_KEY=your_deepseek_api_key
+   GROQ_API_KEY=your_groq_api_key
+   GEMINI_API_KEY=your_gemini_api_key
+   
+   # Database Connections
+   POSTGRES_HOST=your_postgres_host
+   POSTGRES_PORT=5432
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=your_postgres_password
+   POSTGRES_DATABASE=mipal
+   
+   NEO4J_URI=your_neo4j_host
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=your_neo4j_password
+   
+   REDIS_HOST=your_redis_host
+   REDIS_PORT=6379
+   REDIS_PASSWORD=your_redis_password
+   
+   # Authentication
+   JWT_SUPER_SECRET=your_jwt_secret
+   JWT_REFRESH_SECRET=your_jwt_refresh_secret
+   
+   # AWS Services (Required for full functionality)
+   AWS_ACCESS_KEY_ID=your_aws_access_key
+   AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+   AWS_REGION=your_aws_region
+   AWS_KMS_KEY_ID=your_kms_key_id
+   AWS_S3_BUCKET_NAME=your_s3_bucket
+   
+   # Email (AWS SES)
+   SMTP_SERVER=email-smtp.your-region.amazonaws.com
+   SMTP_PORT=587
+   SMTP_USER_NAME=your_ses_username
+   SMTP_PASSWORD=your_ses_password
+   
+   # Code Execution Service
+   CODE_EXECUTION_SERVICE_URL=https://your-code-execution-service.com
+   
+   # Queue
+   SYNC_DOCUMENTS_QUEUE=mipal-local
+   ```
 
-![Sales Pitch Plan Whiteboard.png](docs%2FSales%20Team%20Collaboration%20Whiteboard.png)
+4. **Database Setup**
+   
+   The application will automatically:
+   - Create required PostgreSQL tables
+   - Install necessary extensions (pg_trgm, vector)
+   - Set up Neo4j connections
+   
+## 🚀 Running the Application
 
-# Code Execution Service
+### Development Mode
 
-## Environment-based Sandbox Provider
+1. **Start the main API server**
+   ```bash
+   make run
+   ```
+   
+   The server will start on `http://localhost:8000`
 
-The code execution service supports multiple sandbox providers to run code safely. Currently, two implementations are available:
+2. **Start the background worker** (optional)
+   ```bash
+   make run-worker
+   ```
 
-1. **Docker** - For local development and testing
-2. **ECS (Elastic Container Service)** - For production deployments in AWS
+3. **Start the code execution server** (for advanced analytics)
+   ```bash
+   make run-codex
+   ```
 
-The system uses the `SANDBOX_PROVIDER` environment variable to determine which implementation to use. If not specified, it defaults to `docker`.
+### Production Mode
 
-### Running with Different Providers
-
-Use the provided script to run the code execution server with the desired provider:
-
+Build and run with Docker:
 ```bash
-# Run with Docker (default)
-./scripts/run_code_execution_server.sh docker
-
-# Run with ECS
-./scripts/run_code_execution_server.sh ecs
+make container
+make run-container
 ```
 
-Alternatively, you can set the environment variable manually:
+## 📡 API Documentation
 
+Once the server is running, visit:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+## 🧪 Testing the API
+
+### Health Check
 ```bash
-# For Docker
-export SANDBOX_PROVIDER=docker
-python -m cmd_server.code_execution_server.main
-
-# For ECS
-export SANDBOX_PROVIDER=ecs
-python -m cmd_server.code_execution_server.main
+curl http://localhost:8000/health
 ```
 
-### Configuration
-
-Both implementations use the same configuration structure in `conf/default.yaml`:
-
-```yaml
-sandbox:
-  min_size: 3       # Minimum number of sandboxes to maintain
-  max_size: 10      # Maximum number of sandboxes allowed
-  default_image: "python:3.11-slim"  # Default container image
-```
-
-### AWS Configuration for ECS
-
-When using the ECS provider, ensure the following:
-
-1. AWS credentials are properly configured (via environment variables, AWS CLI credentials, or instance profiles)
-2. The necessary ECS cluster, task definitions, and security groups are set up
-3. The application has sufficient IAM permissions to create, describe, and stop ECS tasks
-
-# Using Docker
-
-The code execution service can be run in Docker containers using docker-compose. This provides an easy way to set up the entire system locally or deploy it to production.
-
-## Building and Running with Docker Compose
-
-1. Build the images:
-
+### User Registration
 ```bash
-docker-compose build
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123",
+    "name": "John Doe"
+  }'
 ```
 
-2. Start the services:
-
+### Login
 ```bash
-# Run with Docker sandbox provider (default for local development)
-docker-compose up -d
-
-# Or specify environment variables for ECS provider (for production)
-AWS_ACCESS_KEY_ID=your_key AWS_SECRET_ACCESS_KEY=your_secret ECS_SUBNET_IDS=your_subnets ECS_SECURITY_GROUP_IDS=your_sg SANDBOX_PROVIDER=ecs docker-compose up -d
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123"
+  }'
 ```
 
-3. Check service status:
+## 🛠️ Development
 
+### Code Quality
+The project uses Ruff for linting and formatting:
 ```bash
-docker-compose ps
+ruff check      # Check for issues
+ruff format     # Format code
 ```
 
-4. View logs:
+### Project Structure
+- **Clean Architecture**: Separation of concerns with clear boundaries
+- **Dependency Injection**: Using `dependency-injector` for IoC
+- **Domain-Driven Design**: Each domain has its own models, services, and repositories
+- **Configuration Management**: Centralized config using Hydra/OmegaConf
 
-```bash
-docker-compose logs -f code-execution-service
-```
+## 🔌 Integrations
 
-## Docker Container Architecture
+The platform supports various integrations:
+- **Database Connections**: PostgreSQL, Excel, CSV files
+- **LLM Providers**: OpenAI, Groq, Gemini, DeepSeek
+- **Cloud Services**: AWS S3, SES, KMS
+- **External APIs**: Extensible integration framework
 
-The system includes the following containers:
+## 🤝 Contributing
 
-1. **code-execution-service**: The main service that handles code execution requests and manages the sandbox pool.
-2. **python-sandbox**: (Only for Docker provider) The container image that provides a secure environment for executing Python code.
-3. **redis**: Used for queue management and caching.
-4. **db**: PostgreSQL database for storing execution records and metadata.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## Docker Configuration
+### Development Guidelines
+- Follow the existing code structure
+- Add tests for new features
+- Update documentation as needed
+- Use conventional commit messages
 
-The Docker configuration consists of:
+## 📄 License
 
-1. `docker/code_execution/Dockerfile`: Builds the code execution service.
-2. `docker/sandbox/Dockerfile`: Builds the Python sandbox container.
-3. `docker-compose.yml`: Defines the services and their dependencies.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Switching Between Docker and ECS Providers
+## 🆘 Support
 
-To switch between the Docker and ECS sandbox providers, set the `SANDBOX_PROVIDER` environment variable:
+If you encounter any issues:
 
-```bash
-# In docker-compose.yml or environment:
-SANDBOX_PROVIDER=docker  # For local development
-SANDBOX_PROVIDER=ecs     # For production with AWS ECS
-```
+1. Check the [Issues](https://github.com/your-org/mipal-analytics/issues) page
+2. Review the API documentation at `/docs`
+3. Ensure all environment variables are correctly set
+4. Verify database connections are working
 
-For the ECS provider, make sure to configure the AWS settings in the environment or docker-compose.yml.
+## 🗺️ Roadmap
 
+- [ ] Alternative cloud providers (Azure, GCP)
+- [ ] Self-hosted code execution environment
+- [ ] Additional database connectors
+- [ ] Enhanced visualization options
+- [ ] Real-time collaboration features
+- [ ] Advanced analytics workflows
 
+## 🏷️ Version
 
+Current version: 0.1.0
+
+## 📞 Contact
+
+For questions and support, please open an issue in the GitHub repository.
+
+---
+
+**Note**: This project currently requires AWS services for full functionality. Alternative implementations for cloud services are planned for future releases to make the platform fully self-hostable.

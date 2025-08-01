@@ -152,9 +152,9 @@ class Container(containers.DeclarativeContainer):
 
     s3_client = providers.Singleton(
         SchemaS3Client,
-        aws_access_key_id=config.aws.access_key_id,
-        aws_secret_access_key=config.aws.secret_access_key,
-        region_name=config.aws.region,
+        aws_access_key_id=config.aws.aws_access_key_id,
+        aws_secret_access_key=config.aws.aws_secret_access_key,
+        region_name=config.aws.aws_region,
         bucket_name=config.aws.s3_bucket_name,
         logger=logger,
         kms_key_id=config.aws.kms_key_id

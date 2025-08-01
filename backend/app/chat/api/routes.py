@@ -79,20 +79,6 @@ async def get_pals(handler: ChatHandlerDep):
     return await handler.get_pals()
 
 
-@chat_router.get("/deep_research/stream/{task_id}")
-async def stream_deep_research_updates(
-    task_id: str,
-    # Assuming handler or a specific dependency provides access to the repo
-    handler: ChatHandlerDep, 
-    # We might need direct access to the repository if not in handler
-    # deep_research_repo: Annotated[IDeepResearchRepository, Depends(...)], 
-    token_detail: Annotated[str, Depends(get_token_detail)] # Ensure user auth if needed
-):
-    """Provides Server-Sent Events for deep research task progress."""
-    # Implementation will be in handlers.py
-    return await handler.stream_deep_research(task_id, token_detail.user_id)
-
-
 @chat_router.get("/messages/{message_id}")
 async def get_message(
     message_id: str,

@@ -13,7 +13,6 @@ from pkg.kms.kms_client import KMSClient
 from conf.config import AppConfig
 from app.code_execution.repository.execution_repository import ExecutionRepository
 from app.code_execution.service.execution_service import ExecutionService
-from app.code_execution.service.queue_service import QueueService
 from app.code_execution.api.handlers import CodeExecutionHandler
 
 
@@ -55,25 +54,15 @@ class Container(containers.DeclarativeContainer):
 
 
 
-    # --- Services ---
-    queue_service = providers.Singleton(
-        QueueService,
-        redis_client=redis_client,
-        logger=logger,
-    )
-
-
     execution_service = providers.Singleton(
         ExecutionService,
         execution_repository=execution_repository,
-        queue_service=queue_service,
         redis_client=redis_client,
         logger=logger,
     )
 
     # --- API Handlers ---
-    code_execution_handler = providers.Singleton(CodeExecutionHandler, execution_service=execution_service,
-                                                 queue_service=queue_service, logger=logger,
+    code_execution_handler = providers.Singleton(CodeExecutionHandler, execution_service=execution_service, logger=logger,
                                                  )
 
 

@@ -7,7 +7,6 @@ from datetime import datetime
 from fastapi import HTTPException, status, BackgroundTasks
 
 from app.code_execution.service.execution_service import ExecutionService
-from app.code_execution.service.queue_service import QueueService
 from app.code_execution.entity.value_objects import ExecutionStatus, ExecutionResult
 from app.code_execution.api.dto import (
     CodeExecutionRequestDTO,
@@ -21,27 +20,10 @@ from pkg.log.logger import Logger
 class CodeExecutionHandler:
     """Handles API requests related to code execution."""
 
-    def __init__(self, execution_service: ExecutionService, queue_service: QueueService, logger: Logger):
+    def __init__(self, execution_service: ExecutionService, logger: Logger):
         self.execution_service = execution_service
-        self.queue_service = queue_service
         self.logger = logger
 
-    async def submit_execution(self, user_id: str, code: str, input_data: Optional[Dict[str, Any]],
-            background_tasks: BackgroundTasks  # Accepted but might not be used directly by service
-    ) -> UUID:
-        """Submit code for asynchronous execution."""
-        self.logger.info(f"User {user_id} submitting code for execution.")
-        try:
-            execution = await self.execution_service.submit_execution(code, input_data)
-            # Example: If you needed to trigger a worker immediately:
-            # background_tasks.add_task(self.execution_service.process_next_execution)
-            return execution.id
-        except Exception as e:
-            self.logger.error(f"Error submitting execution for user {user_id}: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to submit code execution."
-            )
 
     async def execute_code_sync(
             self,
@@ -195,18 +177,3 @@ class CodeExecutionHandler:
             memory_usage_kb=execution.result.memory_usage_kb,
             output_files=execution.result.output_files
         )
-
-    async def cancel_execution(self, user_id: str, execution_id: UUID) -> bool:
-        """Cancel a queued or running execution."""
-        self.logger.info(f"User {user_id} requesting cancellation for execution {execution_id}")
-        try:
-            success = await self.execution_service.cancel_execution(execution_id)
-            if not success:
-                self.logger.warning(
-                    f"Cancellation failed for execution {execution_id} (likely not found or already finished).")
-            return success
-        except Exception as e:
-            self.logger.error(f"Error canceling execution {execution_id} for user {user_id}: {str(e)}")
-            # Don't raise HTTPException here, let the route handle the boolean return
-            return False
-

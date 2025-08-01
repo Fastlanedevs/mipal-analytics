@@ -121,6 +121,7 @@ def create_app() -> FastAPI:
     )
     db_initializer = container.db_initializer()
 
+    # Temporarily disable startup event to debug
     # @app.on_event("startup")
     # async def initialize_database():
     #     """Initialize database schema during application startup"""
@@ -130,10 +131,17 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health_check() -> dict[str, str]:
         return {"status": "ok"}
+    
+    return app
 
 
+# Create a function that returns the app for uvicorn
+def get_application() -> FastAPI:
+    """Application factory for uvicorn"""
+    return create_app()
 
-app = create_app()
+# For uvicorn to find the app when using 'uvicorn cmd_server.server.main:app'
+app = get_application()
 
 if __name__ == "__main__":
     uvicorn.run(app, port=8000, timeout_keep_alive=90, timeout_graceful_shutdown=30)

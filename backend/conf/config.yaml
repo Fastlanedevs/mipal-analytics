@@ -38,11 +38,9 @@ aws:
   aws_region: ${oc.env:AWS_REGION}
   kms_key_id: ${oc.env:AWS_KMS_KEY_ID}
   s3_bucket_name: ${oc.env:AWS_S3_BUCKET_NAME}
-  lambda_function_name: ${oc.env:LAMBDA_FUNCTION_NAME}
 
 queue:
   sync_documents: ${oc.env:SYNC_DOCUMENTS_QUEUE}
-  deep_research_tasks: ${oc.env:DEEP_RESEARCH_TASKS_QUEUE}
 
 redis:
   host: ${oc.env:REDIS_HOST}

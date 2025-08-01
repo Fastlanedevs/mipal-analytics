@@ -44,8 +44,6 @@ class OpenAIConfig:
 class AWSConfig:
     kms_key_id: str
     s3_bucket_name: str
-    anthropic_bedrock_id: str
-    lambda_function_name: str
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_region: str = "eu-north-1"
@@ -54,7 +52,6 @@ class AWSConfig:
 @dataclass
 class QueueConfig:
     sync_documents: str
-    deep_research_tasks: Optional[str] = None
 
 
 @dataclass

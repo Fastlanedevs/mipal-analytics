@@ -10,7 +10,6 @@ from app.code_execution.entity.code_execution_entity import CodeExecution
 from app.code_execution.entity.value_objects import ExecutionStatus, ExecutionResult
 from app.code_execution.repository.execution_repository import IExecutionRepository
 from app.code_execution.service.service import IExecutionService
-from app.code_execution.service.queue_service import QueueService
 from pkg.log.logger import Logger
 from pkg.redis.client import RedisClient
 
@@ -26,12 +25,10 @@ class ExecutionService(IExecutionService):
     def __init__(
             self,
             execution_repository: IExecutionRepository,
-            queue_service: QueueService,
             redis_client: RedisClient,
             logger: Logger
     ):
         self.repository = execution_repository
-        self.queue_service = queue_service
         self.redis_client = redis_client
         self.logger = logger
 
@@ -88,34 +85,6 @@ class ExecutionService(IExecutionService):
             warnings.simplefilter("ignore")
             yield
 
-    async def submit_execution(self, code: str, input_data: Optional[Dict[str, Any]] = None) -> CodeExecution:
-        """
-        Submit a new code execution request for async processing via the queue.
-        This creates an execution record and queues it for processing.
-        """
-        try:
-            # Create execution record with QUEUED status
-            execution = await self.repository.create_execution(code, input_data)
-            self.logger.info(f"Created execution {execution.id} with QUEUED status")
-
-            # Queue execution for processing
-            success = await self.queue_service.enqueue_execution(execution.id)
-            if not success:
-                error_msg = "Failed to enqueue execution"
-                self.logger.error(f"{error_msg} {execution.id}")
-                await self.repository.fail_execution(execution.id, error_msg)
-                return execution
-
-            # Store execution status in Redis for quick access
-            await self._update_execution_status_cache(execution.id, execution.status)
-            self.logger.info(f"Execution {execution.id} successfully queued")
-
-            return execution
-
-        except Exception as e:
-            self.logger.error(f"Error submitting execution: {str(e)}")
-            raise
-
     async def execute_code_sync(self, code: str,
                                 input_data: Optional[Dict[str, Any]] = None) -> Tuple[CodeExecution, bool, Optional[str]]:
         """
@@ -129,7 +98,6 @@ class ExecutionService(IExecutionService):
         """
         
         try:
-            # 1. Create execution record with PROCESSING status (bypass QUEUED)
             execution = await self.repository.create_execution_with_status(
                 code=code,
                 input_data=input_data,
@@ -202,7 +170,6 @@ class ExecutionService(IExecutionService):
         self.logger.info("Executing code synchronously in local environment")
 
         try:
-            # 1. Create execution record with PROCESSING status (bypass QUEUED)
             execution = await self.repository.create_execution_with_status(
                 code=code,
                 input_data=input_data,
@@ -330,84 +297,6 @@ class ExecutionService(IExecutionService):
             self.logger.error(f"Error getting execution {execution_id}: {str(e)}")
             raise
 
-    async def process_next_execution(self) -> Optional[CodeExecution]:
-        """
-        Process the next execution in the queue.
-        This is typically called by a worker process.
-        """
-        # Dequeue next execution
-        execution_id = await self.queue_service.dequeue_execution()
-        if not execution_id:
-            return None
-
-        try:
-            # Get execution details
-            execution = await self.repository.get_execution(execution_id)
-            if not execution or execution.status != ExecutionStatus.QUEUED:
-                self.logger.warning(f"Execution {execution_id} not found or not in QUEUED state")
-                return None
-
-            # Update execution status to processing
-            execution = await self.repository.update_execution_status(
-                execution_id=execution_id,
-                status=ExecutionStatus.PROCESSING
-            )
-
-            self.logger.info(f"Processing execution {execution_id}, updated status to PROCESSING")
-
-            # Update cache
-            await self._update_execution_status_cache(execution_id, ExecutionStatus.PROCESSING)
-
-            return execution
-
-        except Exception as e:
-            self.logger.error(f"Error processing execution {execution_id}: {str(e)}")
-            # Re-queue in case of error
-            await self.queue_service.enqueue_execution(execution_id)
-            raise
-
-    async def cancel_execution(self, execution_id: uuid.UUID) -> bool:
-        """
-        Cancel an execution.
-        If the execution is queued, it will be removed from the queue.
-        If the execution is processing, it will be marked as failed.
-        Note: Cannot actually cancel a Lambda execution that's already running.
-        """
-        try:
-            # Get execution
-            execution = await self.repository.get_execution(execution_id)
-            if not execution:
-                self.logger.warning(f"Cannot cancel execution {execution_id}: Not found")
-                return False
-
-            # Only queued or processing executions can be canceled
-            if execution.status not in [ExecutionStatus.QUEUED, ExecutionStatus.PROCESSING]:
-                self.logger.warning(f"Cannot cancel execution {execution_id}: Invalid status {execution.status}")
-                return False
-
-            # Mark execution as failed with cancellation message
-            self.logger.info(f"Canceling execution {execution_id}")
-            await self.repository.fail_execution(
-                execution_id=execution_id,
-                error_message="Execution canceled by user"
-            )
-
-            # Update cache
-            await self._update_execution_status_cache(execution_id, ExecutionStatus.FAILED)
-            
-            # If it was being processed, mark as complete in queue
-            if execution.status == ExecutionStatus.PROCESSING:
-                await self.queue_service.complete_processing(execution_id)
-
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error canceling execution {execution_id}: {str(e)}")
-            return False
-
-    async def get_queued_executions(self, limit: int = 10) -> List[CodeExecution]:
-        """Get queued executions"""
-        return await self.repository.get_executions_by_status(ExecutionStatus.QUEUED, limit)
 
     async def get_processing_executions(self, limit: int = 10) -> List[CodeExecution]:
         """Get processing executions"""

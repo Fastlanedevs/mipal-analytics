@@ -15,7 +15,6 @@ from app.integrations.service.integration_service import IntegrationService
 from app.knowledge_base.adapter.integration_adapter import IntegrationAdapter
 from app.knowledge_base.event_handler.handler import KnowledgeBaseEventHandler
 from app.knowledge_base.event_handler.subscriber_worker import KnowledgeBaseWorker
-from app.knowledge_base.repository.sql_repository import KnowledgeBaseRepository
 from app.knowledge_base.service.ingestion_service import KnowledgeIngestionService
 from conf.config import AppConfig
 from pkg.db_util.neo4j_conn import Neo4jConnection
@@ -28,7 +27,6 @@ from pkg.pub_sub.publisher import Publisher
 from pkg.pub_sub.subscriber import Subscriber
 from pkg.sqs.client import SQSClient
 from app.analytics.service.postgres_service import PostgresService
-from app.knowledge_base.repository.neo4j_repository import Neo4jRepository
 
 # Add chart-related imports
 from app.analytics.service.chart_queue_service import ChartQueueService
@@ -46,6 +44,7 @@ from app.analytics.repository.storage.s3_client import SchemaS3Client
 from pkg.kms.kms_client import KMSClient
 from app.analytics.entity.chart import ChartStatus
 from pkg.llm_provider.llm_client import LLMModel
+from app.chat.adapter.llm_client import LLMAdapter
 
 class WorkerServer:
     """Worker server with graceful shutdown handling and chart generation support"""
@@ -145,8 +144,6 @@ class WorkerServer:
         integration_service = IntegrationService(
             integration_client, integration_repo, self.logger
         )
-        knowledge_repository = KnowledgeBaseRepository( sql_db_conn, self.logger)
-        neo4j_repository = Neo4jRepository(db_conn, self.logger)
         llm_client = LLMClient(
             config.openai.openai_api_key, config.openai.groq_api_key,
             config.openai.gemini_api_key, self.logger, tokens_service
@@ -160,7 +157,6 @@ class WorkerServer:
         # Initialize knowledge ingestion service
         knowledge_ingestion_service = KnowledgeIngestionService(
             self.logger,
-            knowledge_repository,
             integration_adapter,
             postgres_service,
         )
@@ -175,7 +171,7 @@ class WorkerServer:
             knowledge_base_handler, sync_documents_subscriber, self.logger,
             shutdown_timeout=30  # Timeout for graceful shutdown
         )
-        llm_adapter = LLMAdapter(self.logger, llm_client)
+        llm_adapter = LLMAdapter(llm_client, self.logger)
 
         # Initialize chart-related services
         await self._initialize_chart_services(config, db_conn, sql_db_conn, llm_client, tokens_service, llm_adapter)
