@@ -3,7 +3,6 @@ from typing import Any
 from fastapi import HTTPException
 
 from app.auth.api.dto import (
-    AzureAuthDTO,
     EmailVerificationDTO,
     LoginDTO,
     PasswordResetDTO,

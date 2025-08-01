@@ -123,7 +123,6 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    // Google and Azure providers removed
     // Slack provider removed
   ],
   callbacks: {

@@ -78,8 +78,7 @@ class EmbeddingModel(Enum):
 
 class LLMClient:
     def __init__(self, openai_api_key: str, groq_api_key: str, google_api_key: str,
-                 logger: Logger, tokens_service: TokensService,
-                 bedrock_anthropic_client: Optional[BedrockAnthropicClient] = None):
+                 logger: Logger, tokens_service: TokensService):
         self.open_ai_client: AsyncOpenAI = AsyncOpenAI(api_key=openai_api_key)
         self.google_api_key: str = google_api_key
         if self.google_api_key:  # Initialize Gemini client only if the key is provided
@@ -485,35 +484,6 @@ class LLMClient:
 
                 return response_text
 
-                model_value = bedrock_anthropic_model_map.get(model.value)
-                response = await self.claude_client.messages.create(
-                    model=model_value,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": prompt,
-                                },
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/png",
-                                        "data": base64_image,
-                                    },
-                                },
-                            ],
-                        }
-                    ],
-                )
-                response_text = response.content[0].text
-                # Update token consumption if user_id is provided
-                if user_id and hasattr(response, 'usage'):
-                    total_tokens = response.usage.input_tokens + response.usage.output_tokens
-                    await self.tokens_service.consume_tokens(user_id, total_tokens)
-                return response_text
 
             else:
                 model_value = openai_model_map.get(model.value)

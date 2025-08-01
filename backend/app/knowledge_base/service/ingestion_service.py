@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from uuid import UUID
-from app.knowledge_base.service.service import (IKnowledgeIngestionService, ILLMAdapter, IKnowledgeBaseRepository,
+from app.knowledge_base.service.service import (IKnowledgeIngestionService,
                                                  IIntegrationAdapter)
 
 
@@ -17,15 +17,12 @@ class KnowledgeIngestionService(IKnowledgeIngestionService):
     """Enhanced knowledge ingestion service with  technique support"""
 
 
-    def __init__(self, logger: Logger, repository: IKnowledgeBaseRepository, integration_adapter: IIntegrationAdapter,
-                 llm_adapter: ILLMAdapter, postgres_service: PostgresService, process_document_service: ProcessDocumentService):
+    def __init__(self, logger: Logger, integration_adapter: IIntegrationAdapter, postgres_service: PostgresService):
 
         self.IMAGE_SIZE_LIMIT = 5 * 1024 * 1024  # 5MB limit for images
 
         self.logger: Logger = logger
-        self.repository: IKnowledgeBaseRepository = repository
         self.integration_adapter: IIntegrationAdapter = integration_adapter
-        self.llm_adapter: ILLMAdapter = llm_adapter
         self.postgres_service: PostgresService = postgres_service
         self.logger.info("Initializing Knowledge Ingestion Service")
 

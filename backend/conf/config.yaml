@@ -38,7 +38,6 @@ aws:
   aws_region: ${oc.env:AWS_REGION}
   kms_key_id: ${oc.env:AWS_KMS_KEY_ID}
   s3_bucket_name: ${oc.env:AWS_S3_BUCKET_NAME}
-  anthropic_bedrock_id: ${oc.env:AWS_ANTHROPIC_BEDROCK_ID}
   lambda_function_name: ${oc.env:LAMBDA_FUNCTION_NAME}
 
 queue:

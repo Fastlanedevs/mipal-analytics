@@ -17,8 +17,6 @@ from app.integrations.repository.integration_repository import IntegrationReposi
 from app.integrations.service.integration_service import IntegrationService
 
 from app.knowledge_base.adapter.integration_adapter import IntegrationAdapter
-from app.knowledge_base.repository.sql_repository import KnowledgeBaseRepository
-from app.knowledge_base.repository.neo4j_repository import Neo4jRepository
 from app.knowledge_base.service.ingestion_service import KnowledgeIngestionService
 
 from app.pal.analytics.analytics_workflow import AnalyticsPAL
@@ -245,15 +243,8 @@ class Container(containers.DeclarativeContainer):
         IntegrationHandler, integration_service=integration_service, logger=logger
     )
 
-    # Knowledge Base dependencies
-    knowledge_base_repository = providers.Singleton(
-        KnowledgeBaseRepository, sql_db_conn=postgres_conn, logger=logger
-    )
-    
-    # Neo4j repository for graph operations
-    neo4j_repository = providers.Singleton(
-        Neo4jRepository, neo4j_conn=db_conn, logger=logger
-    )
+
+
     
     integration_adapter = providers.Singleton(
         IntegrationAdapter, integration_service, logger
@@ -278,7 +269,6 @@ class Container(containers.DeclarativeContainer):
     knowledge_ingestion_service = providers.Singleton(
         KnowledgeIngestionService,
         logger=logger,
-        repository=knowledge_base_repository,
         integration_adapter=integration_adapter,  # Using existing integration adapter
 
         postgres_service=postgres_service,  # Add the missing postgres_service parameter

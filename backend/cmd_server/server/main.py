@@ -121,11 +121,11 @@ def create_app() -> FastAPI:
     )
     db_initializer = container.db_initializer()
 
-    @app.on_event("startup")
-    async def initialize_database():
-        """Initialize database schema during application startup"""
-        db_initializer = container.db_initializer()
-        await db_initializer.initialize_tables()  # Call the async method correctly
+    # @app.on_event("startup")
+    # async def initialize_database():
+    #     """Initialize database schema during application startup"""
+    #     db_initializer = container.db_initializer()
+    #     await db_initializer.initialize_tables()  # Call the async method correctly
 
     @app.get("/health")
     def health_check() -> dict[str, str]:
