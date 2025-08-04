@@ -492,14 +492,14 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ### 🐛 Issues & Support
 - **Hosted Service**: [app.mipal.ai](https://app.mipal.ai) - Try our hosted version
 - **Website**: [www.mipal.ai](https://www.mipal.ai) - Learn more about MIPAL
-- **Report bugs**: [GitHub Issues](https://github.com/your-org/mipal-analytics/issues)
-- **Feature requests**: [GitHub Discussions](https://github.com/your-org/mipal-analytics/discussions)
+- **Report bugs**: [GitHub Issues](https://github.com/Fastlanedevs/mipal-analytics/issues)
+- **Feature requests**: [GitHub Discussions](https://github.com/Fastlanedevs/mipal-analytics/discussions)
 - **Security issues**: See [SECURITY.md](SECURITY.md)
 
 ### 💬 Community
 - **Website**: [www.mipal.ai](https://www.mipal.ai)
-- **Discord**: [Join our community](https://discord.gg/mipal)
-- **Twitter**: [@MipalAnalytics](https://twitter.com/MipalAnalytics)
+- **Discord**: [Join our community](https://discord.com/invite/TAYGaJmje7)
+- **Twitter**: [@MipalAnalytics](https://x.com/mipal_ai)
 
 ## 🗺️ Roadmap
 
@@ -514,11 +514,9 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [ ] Self-hosted alternatives to AWS services
 - [ ] Enhanced collaboration features
 - [ ] Advanced chart customization
-- [ ] Mobile-responsive interface
 - [ ] Plugin marketplace
 
 ### 🔮 Future
-- [ ] Multi-language support
 - [ ] Advanced ML workflows
 - [ ] Custom agent creation
 - [ ] Enterprise SSO integration
@@ -526,10 +524,10 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 📊 Project Stats
 
-![GitHub stars](https://img.shields.io/github/stars/your-org/mipal-analytics)
-![GitHub forks](https://img.shields.io/github/forks/your-org/mipal-analytics)
-![GitHub issues](https://img.shields.io/github/issues/your-org/mipal-analytics)
-![GitHub license](https://img.shields.io/github/license/your-org/mipal-analytics)
+![GitHub stars](https://img.shields.io/github/stars/Fastlanedevs/mipal-analytics)
+![GitHub forks](https://img.shields.io/github/forks/Fastlanedevs/mipal-analytics)
+![GitHub issues](https://img.shields.io/github/issues/Fastlanedevs/mipal-analytics)
+![GitHub license](https://img.shields.io/github/license/Fastlanedevs/mipal-analytics)
 
 ---
 
