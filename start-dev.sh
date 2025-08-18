@@ -129,7 +129,7 @@ cd backend
 if [ ! -d ".venv" ] || [ ! -f ".venv/pyvenv.cfg" ]; then
     print_status "Installing backend dependencies..."
     uv venv
-    uv pip install -e . --all-extras
+    uv pip install -e ".[extra]"
 fi
 cd ..
 

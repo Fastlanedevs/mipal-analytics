@@ -42,11 +42,17 @@ class OpenAIConfig:
 
 @dataclass
 class AWSConfig:
-    kms_key_id: str
+    kms_key_id: Optional[str] = None
     s3_bucket_name: str
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_region: str = "eu-north-1"
+
+@dataclass
+class LocalKMSConfig:
+    password : str
+    key_storage_path : Optional[str] = None
+    key_size : int = 32 
 
 
 @dataclass
@@ -59,6 +65,7 @@ class RedisConfig:
     host: str
     port: str
     password: str
+
 
 
 
@@ -90,4 +97,5 @@ class AppConfig:
     aws: AWSConfig
     postgres: PostgresConfig
     service_url: ServiceURL
+    local_kms : LocalKMSConfig
 

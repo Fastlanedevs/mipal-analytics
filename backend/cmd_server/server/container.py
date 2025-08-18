@@ -28,7 +28,8 @@ from conf.config import AppConfig
 from pkg.db_util.neo4j_conn import Neo4jConnection
 from pkg.db_util.postgres_conn import PostgresConnection
 from pkg.db_util.types import DatabaseConfig, PostgresConfig
-from pkg.kms.kms_client import KMSClient
+#from pkg.kms.kms_client import KMSClient
+from pkg.kms.local_kms_client import LocalKMSClient
 from pkg.llm_provider.llm_client import LLMClient, LLMModel
 from pkg.log.logger import Logger
 from pkg.pub_sub.publisher import Publisher
@@ -67,13 +68,23 @@ class Container(containers.DeclarativeContainer):
     # Core dependencies
     logger = providers.Singleton(Logger)
 
+    # kms_client = providers.Singleton(
+    #     KMSClient,
+    #     kms_key_id=config.aws.kms_key_id,
+    #     aws_access_key_id=config.aws.aws_access_key_id,
+    #     aws_secret_access_key=config.aws.aws_secret_access_key,
+    #     logger=logger,
+    # )
+
     kms_client = providers.Singleton(
-        KMSClient,
-        kms_key_id=config.aws.kms_key_id,
-        aws_access_key_id=config.aws.aws_access_key_id,
-        aws_secret_access_key=config.aws.aws_secret_access_key,
+        LocalKMSClient,
+        encryption_password=config.local_kms.password,
+        key_storage_path=config.local_kms.key_storage_path,
+        key_size=config.local_kms.key_size,
         logger=logger,
     )
+
+
 
     db_config = providers.Singleton(
         DatabaseConfig,

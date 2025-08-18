@@ -79,6 +79,7 @@ dependencies = [
     "pydantic-ai==0.2.14",
     "xlrd>=2.0.1",
     "aioboto3",
+    "cryptography>=41.0.0",
 "statsmodels"
 ]
 

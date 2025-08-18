@@ -9,7 +9,8 @@ from pkg.log.logger import Logger
 from pkg.db_util.postgres_conn import PostgresConnection
 from pkg.db_util.types import PostgresConfig
 from pkg.redis.client import RedisClient
-from pkg.kms.kms_client import KMSClient
+#from pkg.kms.kms_client import KMSClient
+from pkg.kms.local_kms_client import LocalKMSClient
 from conf.config import AppConfig
 from app.code_execution.repository.execution_repository import ExecutionRepository
 from app.code_execution.service.execution_service import ExecutionService
@@ -21,11 +22,19 @@ class Container(containers.DeclarativeContainer):
 
     logger: Logger = providers.Singleton(Logger)
 
+    # kms_client = providers.Singleton(
+    #     KMSClient,
+    #     kms_key_id=config.aws.kms_key_id,
+    #     aws_access_key_id=config.aws.aws_access_key_id,
+    #     aws_secret_access_key=config.aws.aws_secret_access_key,
+    #     logger=logger,
+    # )
+
     kms_client = providers.Singleton(
-        KMSClient,
-        kms_key_id=config.aws.kms_key_id,
-        aws_access_key_id=config.aws.aws_access_key_id,
-        aws_secret_access_key=config.aws.aws_secret_access_key,
+        LocalKMSClient,
+        encryption_password=config.local_kms.password,
+        key_storage_path=config.local_kms.key_storage_path,
+        key_size=config.local_kms.key_size,
         logger=logger,
     )
 

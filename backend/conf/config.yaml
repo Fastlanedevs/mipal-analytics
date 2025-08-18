@@ -39,6 +39,11 @@ aws:
   kms_key_id: ${oc.env:AWS_KMS_KEY_ID}
   s3_bucket_name: ${oc.env:AWS_S3_BUCKET_NAME}
 
+local_kms:
+  password: ${os.env:LOCAL_KMS_PASSWORD}
+  key_storage_path: ${os.env:LOCAL_KMS_KEY_STORAGE,null}
+  key_size: ${os.env:LOCAL_KMS_KEY_SIZE,32}
+
 queue:
   sync_documents: ${oc.env:SYNC_DOCUMENTS_QUEUE}
 
